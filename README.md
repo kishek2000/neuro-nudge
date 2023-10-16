@@ -1,2 +1,3 @@
-# whiteboard-copilot
-Project for a whiteboard auto-complete AI assistant.
+# Concordia - a new CRDT
+
+Concordia is a new CRDT built from scratch.
