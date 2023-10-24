@@ -37,6 +37,8 @@
 //! defined in the `types` module.
 //!
 
+pub mod engine;
+
 fn main() {
     println!("Hello, world!");
 }
