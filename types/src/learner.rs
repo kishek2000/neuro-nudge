@@ -1,24 +1,86 @@
 use crate::content::LessonPlan;
 use uuid::Uuid;
 
+// ASD Traits
+// The ASD traits are a set of measurements that are used to determine
+// the similarity between learners.
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum Communicability {
+    Verbal,
+    NonVerbal,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum CommunicationLevel {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct ASDTraits {
+    learner_id: String,
+    attention_span: i32,
+    /// Assumed that if a learner does not have a particular communicability,
+    /// it means they struggle to communicate in that manner (e.g. verbal)
+    communicability: Vec<Communicability>,
+    communication_level: CommunicationLevel,
+}
+
+impl ASDTraits {
+    pub fn new(
+        learner_id: String,
+        attention_span: i32,
+        communicability: Vec<Communicability>,
+        communication_level: CommunicationLevel,
+    ) -> ASDTraits {
+        ASDTraits {
+            learner_id,
+            attention_span,
+            communicability,
+            communication_level,
+        }
+    }
+
+    pub fn get_learner_id(&self) -> &String {
+        &self.learner_id
+    }
+
+    pub fn get_attention_span(&self) -> &i32 {
+        &self.attention_span
+    }
+
+    pub fn get_communicability(&self) -> &Vec<Communicability> {
+        &self.communicability
+    }
+
+    pub fn get_communication_level(&self) -> &CommunicationLevel {
+        &self.communication_level
+    }
+}
+
 /// Learner
 /// A learner is a person who is learning. They have a name, an age, and a set of
-/// lesson plans that they are working on.
+/// lesson plans that they are working on. They also have a unique set of measurements
+/// for their ASD traits.
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Learner {
     id: String,
     name: String,
     age: u8,
     lesson_plans: Vec<LessonPlan>,
+    asd_traits: ASDTraits,
 }
 
 impl Learner {
-    pub fn new(name: String, age: u8) -> Learner {
+    pub fn new(name: String, age: u8, asd_traits: ASDTraits) -> Learner {
         let id = Uuid::new_v4().to_string();
         Learner {
             id,
             name,
             age,
             lesson_plans: vec![],
+            asd_traits,
         }
     }
 
@@ -40,5 +102,9 @@ impl Learner {
 
     pub fn get_age(&self) -> &u8 {
         &self.age
+    }
+
+    pub fn get_asd_traits(&self) -> &ASDTraits {
+        &self.asd_traits
     }
 }

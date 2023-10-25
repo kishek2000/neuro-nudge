@@ -92,7 +92,8 @@ pub fn simulate_basic_lesson() -> LessonResult {
     // Example lesson attempted questions
     let mut lesson_attempted_questions: Vec<QuestionAttempt> = vec![];
     let mut curr_question = 1;
-    for question in example_module.get_lessons()[0].get_questions() {
+    let lesson = example_module.get_lessons()[0].clone();
+    for question in lesson.get_questions() {
         let question_attempt: QuestionAttempt = if curr_question <= 3 {
             QuestionAttempt::new(question.get_id().to_string(), 6 - curr_question, 1, 0)
         } else if curr_question == 4 {
@@ -105,9 +106,13 @@ pub fn simulate_basic_lesson() -> LessonResult {
 
         curr_question += 1;
     }
-
     // Example lesson result from a child
-    let lesson_result: LessonResult = LessonResult::new(400, 5, lesson_attempted_questions);
+    let lesson_result: LessonResult = LessonResult::new(
+        lesson.get_difficulty_level(),
+        400,
+        5,
+        lesson_attempted_questions,
+    );
 
     return lesson_result;
 }

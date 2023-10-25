@@ -2,6 +2,7 @@ use uuid::Uuid;
 
 /// Module
 /// A module is a unit of study. It has a name and a list of lessons.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ContentModule {
     id: String,
     name: String,
@@ -38,6 +39,7 @@ impl ContentModule {
 /// LessonPlan
 /// A lesson plan is a set of lessons that the learner is working on. It has a name
 /// and a list of lessons.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct LessonPlan {
     id: String,
     name: String,
@@ -87,6 +89,7 @@ impl LessonPlan {
 /// DifficultyLevel
 /// The difficulty level is a qualitative measure of how difficult a lesson of
 /// some module is.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum DifficultyLevel {
     VeryEasy,
     Easy,
@@ -101,6 +104,7 @@ pub enum DifficultyLevel {
 /// Lesson
 /// A lesson is a unit of a lesson plam. It has a name and a list of questions that
 /// the learner requires to attempt.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Lesson {
     id: String,
     name: String,
@@ -146,14 +150,15 @@ impl Lesson {
         &self.name
     }
 
-    pub fn get_difficulty_level(&self) -> &DifficultyLevel {
-        &self.difficulty_level
+    pub fn get_difficulty_level(self) -> DifficultyLevel {
+        self.difficulty_level
     }
 }
 
 /// QuestionOption
 /// A question option is an option that the learner can select as an answer to a question.
 /// This could be text or an image.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct QuestionOption {
     id: String,
     option: String,
@@ -191,6 +196,7 @@ impl QuestionOption {
 /// - a fill in the blank question (learner says response to instructor nearby who will enter it)
 /// - a question that requires the learner to imitate the prompt (such as an action) and the instructor
 ///   will determine if the learner has done it correctly
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Question {
     id: String,
     prompt: Prompt,
@@ -251,6 +257,7 @@ impl Question {
 
 /// Prompt
 /// A prompt is the question that is asked of the learner. It could be an image, a video, or simply text.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Prompt {
     prompt_type: PromptType,
     prompt: String,
@@ -275,6 +282,7 @@ impl Prompt {
 
 /// PromptType
 /// The type of prompt that is being used. This could be an image, a video, or simply text.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum PromptType {
     Image,
     Video,
@@ -286,6 +294,7 @@ pub enum PromptType {
 /// the instructor to confirm, then we expect a true or false response from the instructor.
 /// Otherwise, we expect an integer response from the learner which is the index of the answer
 /// that they have selected.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Answer {
     Integer(u8),
     Boolean(bool),
@@ -299,20 +308,21 @@ pub enum Answer {
 /// - number of incorrect attempts
 /// - number of hints requested (if relevant, might be irrelevant for a question)
 /// Based on the above factors, the engine will determine the learner's progress and make recommendations.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct QuestionAttempt {
     question_id: String,
-    time_taken: u8,
-    total_attempts: u8,
-    incorrect_attempts: u8,
-    hints_requested: Option<u8>,
+    time_taken: i32,
+    total_attempts: i32,
+    incorrect_attempts: i32,
+    hints_requested: Option<i32>,
 }
 
 impl QuestionAttempt {
     pub fn new(
         question_id: String,
-        time_taken: u8,
-        total_attempts: u8,
-        incorrect_attempts: u8,
+        time_taken: i32,
+        total_attempts: i32,
+        incorrect_attempts: i32,
     ) -> QuestionAttempt {
         QuestionAttempt {
             question_id,
@@ -338,19 +348,19 @@ impl QuestionAttempt {
         &self.question_id
     }
 
-    pub fn get_time_taken(&self) -> &u8 {
+    pub fn get_time_taken(&self) -> &i32 {
         &self.time_taken
     }
 
-    pub fn get_total_attempts(&self) -> &u8 {
+    pub fn get_total_attempts(&self) -> &i32 {
         &self.total_attempts
     }
 
-    pub fn get_incorrect_attempts(&self) -> &u8 {
+    pub fn get_incorrect_attempts(&self) -> &i32 {
         &self.incorrect_attempts
     }
 
-    pub fn get_hints_requested(&self) -> &Option<u8> {
+    pub fn get_hints_requested(&self) -> &Option<i32> {
         &self.hints_requested
     }
 }
@@ -360,34 +370,63 @@ impl QuestionAttempt {
 /// - time taken to complete the lesson
 /// - total number of questions in the lesson
 /// - a list of question attempts
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct LessonResult {
-    time_taken: u64,
-    total_questions: u8,
+    difficulty_level: DifficultyLevel,
+    time_taken: i32,
+    total_questions: i32,
     attempted_questions: Vec<QuestionAttempt>,
 }
 
 impl LessonResult {
     pub fn new(
-        time_taken: u64,
-        total_questions: u8,
+        difficulty_level: DifficultyLevel,
+        time_taken: i32,
+        total_questions: i32,
         attempted_questions: Vec<QuestionAttempt>,
     ) -> LessonResult {
         LessonResult {
+            difficulty_level,
             time_taken,
             total_questions,
             attempted_questions,
         }
     }
 
+    pub fn get_difficulty_level(&self) -> &DifficultyLevel {
+        &self.difficulty_level
+    }
+
     pub fn add_question_attempt(&mut self, question_attempt: QuestionAttempt) {
         self.attempted_questions.push(question_attempt);
     }
 
-    pub fn get_time_taken(&self) -> &u64 {
-        &self.time_taken
+    pub fn get_time_taken(&self) -> i32 {
+        self.time_taken.clone()
     }
 
-    pub fn get_total_questions(&self) -> &u8 {
+    pub fn get_total_incorrect_attempts(&self) -> i32 {
+        let mut total_incorrect_attempts = 0;
+        for question_attempt in &self.attempted_questions {
+            total_incorrect_attempts += question_attempt.get_incorrect_attempts();
+        }
+        total_incorrect_attempts.clone()
+    }
+
+    pub fn get_total_hints_requested(&self) -> i32 {
+        let mut total_hints_requested = 0;
+        for question_attempt in &self.attempted_questions {
+            match question_attempt.get_hints_requested() {
+                Some(hints_requested) => {
+                    total_hints_requested += hints_requested;
+                }
+                None => {}
+            }
+        }
+        total_hints_requested.clone()
+    }
+
+    pub fn get_total_questions(&self) -> &i32 {
         &self.total_questions
     }
 
