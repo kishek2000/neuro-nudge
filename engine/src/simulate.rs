@@ -51,15 +51,53 @@ fn simulate_lesson_attempt(
     // Retrieve the current lesson for the learner.
     let current_lesson = learner.get_current_lesson(); // Replace with your logic to get the lesson.
 
-    // Implement code to simulate the learner's attempt at the lesson and return LessonResult.
-    // You can use content_module, current_lesson, learner, and q_table to simulate the learning process.
-    // Replace this with your simulation logic.
-    // For now, we'll generate a dummy LessonResult.
+    // Generate a simulated lesson result.
+    let mut question_attempts = Vec::new();
+    let mut total_score = 0;
+    let num_attempts = 5; // Number of questions attempted.
+
+    for _ in 0..num_attempts {
+        // Randomly select a question from the current lesson.
+        let question = current_lesson
+            .get_questions()
+            .choose(&mut rand::thread_rng());
+
+        if let Some(question) = question {
+            // Simulate learner's answer attempt (e.g., random selection).
+            let answer_attempt = rand::thread_rng().gen_range(0..question.get_options().len());
+
+            // Check if the answer is correct.
+            let is_correct = answer_attempt == question.get_answer().unwrap().to_integer();
+
+            // Calculate the score (for simplicity, you can adjust scoring logic).
+            let score = if is_correct { 10 } else { 0 };
+            total_score += score;
+
+            // Create a QuestionAttempt object.
+            let question_attempt = QuestionAttempt::new(
+                question.get_id().to_string(),
+                score,
+                answer_attempt,
+                if is_correct { 1 } else { 0 },
+            );
+
+            question_attempts.push(question_attempt);
+        }
+    }
+
+    // Calculate the average score (for simplicity).
+    let average_score = if num_attempts > 0 {
+        total_score / num_attempts
+    } else {
+        0
+    };
+
+    // Create a LessonResult.
     let lesson_result = LessonResult::new(
-        current_lesson.clone().get_difficulty_level(),
-        100,    // Replace with actual score or progress.
-        5,      // Replace with the number of attempted questions.
-        vec![], // Replace with a vector of QuestionAttempt objects.
+        current_lesson.get_difficulty_level(),
+        average_score,       // Use the actual score or progress.
+        num_attempts as u32, // Number of questions attempted.
+        question_attempts,
     );
 
     lesson_result
