@@ -1,4 +1,4 @@
-use crate::content::LessonPlan;
+use crate::content::{Lesson, LessonPlan};
 use uuid::Uuid;
 
 // ASD Traits
@@ -70,17 +70,25 @@ pub struct Learner {
     age: u8,
     lesson_plans: Vec<LessonPlan>,
     asd_traits: ASDTraits,
+    q_table_id: String,
 }
 
 impl Learner {
-    pub fn new(name: String, age: u8, asd_traits: ASDTraits) -> Learner {
-        let id = Uuid::new_v4().to_string();
+    pub fn new(
+        name: String,
+        age: u8,
+        asd_traits: ASDTraits,
+        q_table_id: String,
+        learner_id: Option<String>,
+    ) -> Learner {
+        let id = learner_id.unwrap_or(Uuid::new_v4().to_string());
         Learner {
             id,
             name,
             age,
             lesson_plans: vec![],
             asd_traits,
+            q_table_id,
         }
     }
 
@@ -90,6 +98,13 @@ impl Learner {
 
     pub fn get_lesson_plans(&self) -> &Vec<LessonPlan> {
         &self.lesson_plans
+    }
+
+    pub fn get_current_lesson(&self) -> &Lesson {
+        // get the last (latest) lesson plan
+        let latest_plan = self.lesson_plans.last().unwrap();
+        // for now, all plans have 1 lesson in them. return it
+        &latest_plan.get_lessons()[0]
     }
 
     pub fn get_id(&self) -> &String {
@@ -106,5 +121,9 @@ impl Learner {
 
     pub fn get_asd_traits(&self) -> &ASDTraits {
         &self.asd_traits
+    }
+
+    pub fn get_q_table_id(&self) -> &String {
+        &self.q_table_id
     }
 }

@@ -37,7 +37,9 @@
 //! defined in the `types` module.
 //!
 
-pub mod engine;
+pub mod simulate;
+pub mod simulated_content;
+pub mod simulated_learners;
 
 fn main() {
     println!("Hello, world!");

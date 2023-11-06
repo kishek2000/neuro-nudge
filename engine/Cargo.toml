@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 # types module from the `types` package
+uuid = { version = "1.4.1", features = ["v4"] }
 types = { path = "../types" }

@@ -19,6 +19,11 @@ impl ContentModule {
         }
     }
 
+    pub fn with_lessons(&mut self, lessons: Vec<Lesson>) -> ContentModule {
+        self.lessons = lessons;
+        self.clone()
+    }
+
     pub fn add_lesson(&mut self, lesson: Lesson) {
         self.lessons.push(lesson);
     }
@@ -159,20 +164,27 @@ impl Lesson {
 /// A question option is an option that the learner can select as an answer to a question.
 /// This could be text or an image.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum QuestionOptionType {
+    Text,
+    Image,
+    Video,
+    Audio,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct QuestionOption {
     id: String,
     option: String,
-    /// If image, option is an image URL.
-    is_image: bool,
+    option_type: QuestionOptionType,
 }
 
 impl QuestionOption {
-    pub fn new(option: String, is_image: bool) -> QuestionOption {
+    pub fn new(option: String, option_type: QuestionOptionType) -> QuestionOption {
         let id = Uuid::new_v4().to_string();
         QuestionOption {
             id,
             option,
-            is_image,
+            option_type,
         }
     }
 
@@ -184,8 +196,8 @@ impl QuestionOption {
         &self.option
     }
 
-    pub fn get_is_image(&self) -> &bool {
-        &self.is_image
+    pub fn get_option_type(&self) -> &QuestionOptionType {
+        &self.option_type
     }
 }
 
@@ -442,3 +454,13 @@ pub const TRIANGLE_IMAGE: &str =
     "https://t4.ftcdn.net/jpg/01/77/67/85/360_F_177678515_ZCqLyYIR7OEzb0zy3Q8Tu0I9Af00j4Z9.jpg";
 
 pub const SQUARE_IMAGE: &str = "https://previews.123rf.com/images/get4net/get4net1901/get4net190106174/126278452-rectangular-square-shape.jpg";
+
+pub const RECTANGLE_IMAGE: &str = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyODK5dUxNVjvNIPU2nTzoKGslbo7cGtkNJwhtyULMJhh4eEA_mW6T6By-gMwwb9lGkVU&usqp=CAU";
+
+pub const PENTAGON_IMAGE: &str = "https://c8.alamy.com/comp/2J3DKA2/pentagon-shape-symbol-vector-icon-outline-stroke-for-creative-graphic-design-ui-element-in-a-pictogram-illustration-2J3DKA2.jpg";
+
+pub const HEXAGON_IMAGE: &str =
+    "https://images.twinkl.co.uk/tw1n/image/private/t_630/u/ux/hex_ver_1.png";
+
+pub const HEPTAGON_IMAGE: &str =
+    "https://i.ibb.co/ZBPrtxm/360-F-315506920-w-RLWKFBTc-Vc0vprt9-Ckc0b-X5-Phs-LYf-OL.jpg";

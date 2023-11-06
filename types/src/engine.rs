@@ -23,17 +23,19 @@
 
 use std::collections::HashMap;
 
-use types::{
+use crate::{
     content::{ContentModule, DifficultyLevel, Lesson, LessonResult},
     learner::{ASDTraits, Learner},
 };
 
-type QTable = HashMap<(Lesson, DifficultyLevel), f32>;
+pub type QTable = HashMap<(Lesson, DifficultyLevel), f32>;
 
 /// QTable Algorithm
 /// As per comment blob at top of the file. This struct specifically deals with
 /// a single q table associated to some module under some learner.
+#[derive(Debug, Clone, PartialEq)]
 pub struct QTableAlgorithm {
+    id: String,
     /// The QTable is a mapping between a state and an action, and the value
     /// of that action.
     q_table: QTable,
@@ -42,9 +44,10 @@ pub struct QTableAlgorithm {
 }
 
 impl QTableAlgorithm {
-    pub fn new() -> QTableAlgorithm {
+    pub fn new(q_table: Option<QTable>) -> QTableAlgorithm {
         QTableAlgorithm {
-            q_table: HashMap::new(),
+            id: uuid::Uuid::new_v4().to_string(),
+            q_table: q_table.unwrap_or(HashMap::new()),
             discount_factor: 0.9,
             learning_rate: 0.1,
         }
@@ -55,10 +58,15 @@ impl QTableAlgorithm {
         self.q_table.get(state)
     }
 
+    /// Get the id of the Q-Table.
+    pub fn get_id(&self) -> &str {
+        &self.id
+    }
+
     /// Update the value of some state-action pair, based on a lesson result
     /// from a learner.
-    pub fn update(&mut self, state: &(Lesson, DifficultyLevel), lesson_result: &LessonResult) {
-        let old_value = self.q_table.get(state).unwrap_or(&0.0);
+    pub fn update(&mut self, state: (Lesson, DifficultyLevel), lesson_result: &LessonResult) {
+        let old_value = self.q_table.get(&state).unwrap_or(&0.0);
 
         let lesson_difficulty = lesson_result.get_difficulty_level();
 
@@ -195,7 +203,7 @@ impl CollaborativeFilteringAlgorithm {
                         );
 
                         // Calculate the combined similarity score with a higher weight for ASD traits.
-                        let combined_similarity = 0.55 * asd_similarity + 0.45 * q_table_similarity;
+                        let combined_similarity = 0.6 * asd_similarity + 0.4 * q_table_similarity;
 
                         if combined_similarity > most_similar_similarity {
                             most_similar_learner = Some(other_learner);
