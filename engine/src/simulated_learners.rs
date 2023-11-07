@@ -94,11 +94,11 @@ pub fn generate_simulated_learners_with_q_tables(
 
     let learners = vec![
         generate_simulated_learner("Learner 1", 7, similar_asd_traits_1, &mut q_table_1),
-        // generate_simulated_learner("Learner 2", 8, similar_asd_traits_2, &mut q_table_2),
-        // generate_simulated_learner("Learner 3", 9, different_asd_traits_1, &mut q_table_3),
-        // generate_simulated_learner("Learner 4", 10, different_asd_traits_2, &mut q_table_4),
-        // generate_simulated_learner("Learner 5", 11, random_asd_traits_1, &mut q_table_5),
-        // generate_simulated_learner("Learner 6", 12, random_asd_traits_2, &mut q_table_6),
+        generate_simulated_learner("Learner 2", 8, similar_asd_traits_2, &mut q_table_2),
+        generate_simulated_learner("Learner 3", 9, different_asd_traits_1, &mut q_table_3),
+        generate_simulated_learner("Learner 4", 10, different_asd_traits_2, &mut q_table_4),
+        generate_simulated_learner("Learner 5", 11, random_asd_traits_1, &mut q_table_5),
+        generate_simulated_learner("Learner 6", 12, random_asd_traits_2, &mut q_table_6),
     ];
 
     for learner in learners {
@@ -121,11 +121,11 @@ pub fn generate_simulated_learners_with_q_tables(
     (
         vec![
             "Learner 1",
-            // "Learner 2",
-            // "Learner 3",
-            // "Learner 4",
-            // "Learner 5",
-            // "Learner 6",
+            "Learner 2",
+            "Learner 3",
+            "Learner 4",
+            "Learner 5",
+            "Learner 6",
         ],
         simulated_learners_with_q_tables,
     )

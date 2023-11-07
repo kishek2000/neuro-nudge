@@ -23,12 +23,27 @@
 
 use std::collections::HashMap;
 
+use rand::Rng;
+
 use crate::{
     content::{ContentModule, DifficultyLevel, Lesson, LessonResult},
     learner::{ASDTraits, Learner},
 };
 
+// Define mastery thresholds as constants
+const BASIC_MASTERY_THRESHOLD: f32 = 0.5;
+const COMPETENT_MASTERY_THRESHOLD: f32 = 0.7;
+const FULL_MASTERY_THRESHOLD: f32 = 0.8;
+
 pub type QTable = HashMap<(Lesson, DifficultyLevel), f32>;
+
+#[derive(Debug, Clone)]
+pub enum Mastery {
+    None,
+    Basic,
+    Competent,
+    Full,
+}
 
 /// QTable Algorithm
 /// As per comment blob at top of the file. This struct specifically deals with
@@ -39,18 +54,24 @@ pub struct QTableAlgorithm {
     /// The QTable is a mapping between a state and an action, and the value
     /// of that action.
     q_table: QTable,
+    epsilon: f32,
     discount_factor: f32,
     learning_rate: f32,
 }
 
 impl QTableAlgorithm {
-    pub fn new(q_table: Option<QTable>) -> QTableAlgorithm {
+    pub fn new(q_table: Option<QTable>, epsilon: f32) -> QTableAlgorithm {
         QTableAlgorithm {
             id: uuid::Uuid::new_v4().to_string(),
             q_table: q_table.unwrap_or(HashMap::new()),
-            discount_factor: 0.9,
-            learning_rate: 0.1,
+            discount_factor: 0.25,
+            learning_rate: 0.75,
+            epsilon,
         }
+    }
+
+    pub fn insert(&mut self, state: (Lesson, DifficultyLevel), value: f32) {
+        self.q_table.insert(state, value);
     }
 
     /// Get the value of some state-action pair.
@@ -63,9 +84,90 @@ impl QTableAlgorithm {
         &self.id
     }
 
+    // Epsilon-greedy strategy to choose the next action
+    pub fn epsilon_greedy_action(
+        &self,
+        state: &(Lesson, DifficultyLevel),
+        mastery_level: Mastery,
+    ) -> (Lesson, DifficultyLevel) {
+        let rand_value = rand::thread_rng().gen::<f32>();
+        if rand_value < self.epsilon {
+            // Exploration: choose the next difficulty level.
+            self.choose_next_difficulty(state, mastery_level)
+        } else {
+            // Exploitation: choose the best-known action.
+            self.get_best_action(state)
+                .clone()
+                .unwrap_or_else(|| self.choose_next_difficulty(state, mastery_level))
+        }
+    }
+
+    // Assuming we choose the next difficulty level.
+    fn choose_next_difficulty(
+        &self,
+        state: &(Lesson, DifficultyLevel),
+        mastery_level: Mastery,
+    ) -> (Lesson, DifficultyLevel) {
+        let difficulties = [
+            DifficultyLevel::VeryEasy,
+            DifficultyLevel::Easy,
+            DifficultyLevel::Medium,
+            DifficultyLevel::Hard,
+            DifficultyLevel::VeryHard,
+            DifficultyLevel::Expert,
+            DifficultyLevel::Master,
+            DifficultyLevel::Grandmaster,
+        ];
+
+        let current_index = difficulties
+            .iter()
+            .position(|d| d.clone() == state.1)
+            .unwrap_or(0);
+
+        let mut next_index = match mastery_level {
+            Mastery::Full => current_index + 1, // Move up one level for full mastery
+            // With a random probability of 0.6, move up one level for competent mastery
+            Mastery::Competent => {
+                if rand::thread_rng().gen::<f32>() < 0.6 {
+                    current_index + 1
+                } else {
+                    current_index
+                }
+            }
+            Mastery::Basic => current_index, // Stay at current level for basic mastery
+            // Drop a level if below basic mastery, at probability of 0.4. That means there's a 0.6 chance you stay as is.
+            _ => {
+                if rand::thread_rng().gen::<f32>() < 0.4 {
+                    if current_index == 0 {
+                        0
+                    } else {
+                        current_index - 1
+                    }
+                } else {
+                    current_index
+                }
+            }
+        };
+
+        next_index = next_index.min(difficulties.len() - 1); // Ensure index is within bounds
+        next_index = next_index.max(0); // Ensure index is within bounds
+        let next_difficulty = difficulties[next_index].clone();
+
+        let lesson_with_difficulty = self.q_table.keys().find(|(_, d)| d == &next_difficulty);
+
+        (
+            lesson_with_difficulty.unwrap().0.clone(),
+            difficulties[next_index].clone(),
+        )
+    }
+
     /// Update the value of some state-action pair, based on a lesson result
     /// from a learner.
-    pub fn update(&mut self, state: (Lesson, DifficultyLevel), lesson_result: &LessonResult) {
+    pub fn update(
+        &mut self,
+        state: (Lesson, DifficultyLevel),
+        lesson_result: &LessonResult,
+    ) -> Mastery {
         let old_value = self.q_table.get(&state).unwrap_or(&0.0);
 
         let lesson_difficulty = lesson_result.get_difficulty_level();
@@ -111,20 +213,54 @@ impl QTableAlgorithm {
         // Overall reward calculation
         let reward = time_taken_factor - incorrect_attempts_factor + hints_requested_factor;
         let reward = reward.max(-1.0).min(1.0);
-        let new_value = (1.0 - self.learning_rate) * old_value
-            + self.learning_rate * (reward + self.discount_factor * old_value);
+
+        // Adjust the reward based on mastery thresholds
+        let mastery_level = if reward >= FULL_MASTERY_THRESHOLD {
+            Mastery::Full
+        } else if reward >= COMPETENT_MASTERY_THRESHOLD {
+            Mastery::Competent
+        } else if reward >= BASIC_MASTERY_THRESHOLD {
+            Mastery::Basic
+        } else {
+            Mastery::None
+        };
+
+        let new_reward = match mastery_level {
+            Mastery::Full => 1.0,               // Give full reward for the complete mastery
+            Mastery::Competent => reward + 0.1, // Give some additional reward for competent mastery
+            Mastery::Basic => reward, // No additional reward, but no penalty either for basic mastery
+            _ => reward - 0.1,        // Penalize for lack of basic mastery
+        };
+
+        let (next_state, _) = self.choose_next_difficulty(&state, mastery_level.clone());
+
+        let next_max = self
+            .q_table
+            .iter()
+            .filter(|((s, _), _)| s == &next_state)
+            .map(|(_, &v)| v)
+            .max_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(0.0);
+
+        let new_value = old_value
+            + self.learning_rate * (new_reward + self.discount_factor * next_max - old_value);
 
         self.q_table.insert(state.clone(), new_value);
+
+        mastery_level
     }
 
     /// Get the best action for some state.
-    pub fn get_best_action(&self, state: &Lesson) -> Option<&DifficultyLevel> {
+    pub fn get_best_action(
+        &self,
+        state: &(Lesson, DifficultyLevel),
+    ) -> Option<(Lesson, DifficultyLevel)> {
         let mut best_action = None;
         let mut best_value = f32::MIN;
-        for ((lesson, difficulty_level), value) in self.q_table.iter() {
-            if lesson == state && value > &best_value {
-                best_action = Some(difficulty_level);
-                best_value = *value;
+        for ((l, difficulty_level), &value) in &self.q_table {
+            if state.1 == *difficulty_level && value > best_value {
+                best_action = Some((l.clone(), difficulty_level.clone()));
+                best_value = value;
             }
         }
         best_action
@@ -215,8 +351,10 @@ impl CollaborativeFilteringAlgorithm {
                 // If a similar learner was found, we should recommend a lesson
                 // difficulty level based on the similar learner's Q-Table.
                 if most_similar_learner.is_some() {
-                    if let Some(recommended_level) =
-                        q_table.get_best_action(&module.get_lessons()[0])
+                    let lesson = learner.get_current_lesson();
+                    let difficulty_level = lesson.clone().get_difficulty_level();
+                    if let Some((_, recommended_level)) =
+                        q_table.get_best_action(&(lesson.clone(), difficulty_level))
                     {
                         return Some(recommended_level.clone());
                     }
