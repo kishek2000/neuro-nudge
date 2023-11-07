@@ -106,6 +106,23 @@ pub enum DifficultyLevel {
     Grandmaster,
 }
 
+// from str impl for difficulty level
+impl From<&str> for DifficultyLevel {
+    fn from(difficulty_level: &str) -> Self {
+        match difficulty_level {
+            "VeryEasy" => DifficultyLevel::VeryEasy,
+            "Easy" => DifficultyLevel::Easy,
+            "Medium" => DifficultyLevel::Medium,
+            "Hard" => DifficultyLevel::Hard,
+            "VeryHard" => DifficultyLevel::VeryHard,
+            "Expert" => DifficultyLevel::Expert,
+            "Master" => DifficultyLevel::Master,
+            "Grandmaster" => DifficultyLevel::Grandmaster,
+            _ => panic!("Invalid difficulty level"),
+        }
+    }
+}
+
 /// Lesson
 /// A lesson is a unit of a lesson plam. It has a name and a list of questions that
 /// the learner requires to attempt.

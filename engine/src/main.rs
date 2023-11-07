@@ -42,5 +42,8 @@ pub mod simulated_content;
 pub mod simulated_learners;
 
 fn main() {
-    println!("Hello, world!");
+    println!(">> Welcome to Neuro Nudge!");
+    println!(">> Running simulation now...");
+    simulate::run_simulation();
+    println!(">> Simulation complete!");
 }

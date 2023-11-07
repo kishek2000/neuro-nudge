@@ -9,3 +9,4 @@ edition = "2021"
 # types module from the `types` package
 uuid = { version = "1.4.1", features = ["v4"] }
 types = { path = "../types" }
+rand = { version = "0.8.4" }

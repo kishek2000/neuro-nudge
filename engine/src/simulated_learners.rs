@@ -8,11 +8,11 @@ fn generate_simulated_learner(
     asd_traits: ASDTraits,
     q_table: &mut QTableAlgorithm, // Use a mutable reference
 ) -> Learner {
-    let q_table_id = q_table.get_id().clone();
-    let mut learner = Learner::new(
+    let q_table_id = q_table.get_id();
+    let learner = Learner::new(
         name.to_string(),
         age,
-        asd_traits,
+        asd_traits.clone(),
         q_table_id.to_string(),
         Some(asd_traits.get_learner_id().clone()),
     );
@@ -25,13 +25,13 @@ pub fn generate_simulated_learners_with_q_tables() -> HashMap<String, (Learner, 
 
     // Generate two learners with similar ASD traits (Verbal, Medium CommunicationLevel)
     let similar_asd_traits_1 = ASDTraits::new(
-        uuid::Uuid::new_v4().to_string(),
+        "Learner 1".to_string(),
         5,
         vec![Communicability::Verbal],
         CommunicationLevel::Medium,
     );
     let similar_asd_traits_2 = ASDTraits::new(
-        uuid::Uuid::new_v4().to_string(),
+        "Learner 2".to_string(),
         6,
         vec![Communicability::Verbal],
         CommunicationLevel::Medium,
@@ -39,13 +39,13 @@ pub fn generate_simulated_learners_with_q_tables() -> HashMap<String, (Learner, 
 
     // Generate two learners with different ASD traits (NonVerbal, Low CommunicationLevel; Verbal, NonVerbal, High CommunicationLevel)
     let different_asd_traits_1 = ASDTraits::new(
-        uuid::Uuid::new_v4().to_string(),
+        "Learner 3".to_string(),
         7,
         vec![Communicability::NonVerbal],
         CommunicationLevel::Low,
     );
     let different_asd_traits_2 = ASDTraits::new(
-        uuid::Uuid::new_v4().to_string(),
+        "Learner 4".to_string(),
         8,
         vec![Communicability::Verbal, Communicability::NonVerbal],
         CommunicationLevel::High,
@@ -53,24 +53,24 @@ pub fn generate_simulated_learners_with_q_tables() -> HashMap<String, (Learner, 
 
     // Generate two learners with random ASD traits
     let random_asd_traits_1 = ASDTraits::new(
-        uuid::Uuid::new_v4().to_string(),
+        "Learner 5".to_string(),
         9,
         vec![Communicability::Verbal],
         CommunicationLevel::Medium,
     );
     let random_asd_traits_2 = ASDTraits::new(
-        uuid::Uuid::new_v4().to_string(),
+        "Learner 6".to_string(),
         10,
         vec![Communicability::NonVerbal],
         CommunicationLevel::Low,
     );
 
-    let q_table_1 = QTableAlgorithm::new(None); // Create a separate QTableAlgorithm instance
-    let q_table_2 = QTableAlgorithm::new(None);
-    let q_table_3 = QTableAlgorithm::new(None);
-    let q_table_4 = QTableAlgorithm::new(None);
-    let q_table_5 = QTableAlgorithm::new(None);
-    let q_table_6 = QTableAlgorithm::new(None);
+    let mut q_table_1 = QTableAlgorithm::new(None); // Create a separate QTableAlgorithm instance
+    let mut q_table_2 = QTableAlgorithm::new(None);
+    let mut q_table_3 = QTableAlgorithm::new(None);
+    let mut q_table_4 = QTableAlgorithm::new(None);
+    let mut q_table_5 = QTableAlgorithm::new(None);
+    let mut q_table_6 = QTableAlgorithm::new(None);
 
     let learners = vec![
         generate_simulated_learner("Learner 1", 7, similar_asd_traits_1, &mut q_table_1),

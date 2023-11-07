@@ -4,20 +4,20 @@ use uuid::Uuid;
 // ASD Traits
 // The ASD traits are a set of measurements that are used to determine
 // the similarity between learners.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Communicability {
     Verbal,
     NonVerbal,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum CommunicationLevel {
     High,
     Medium,
     Low,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ASDTraits {
     learner_id: String,
     attention_span: i32,
@@ -94,6 +94,12 @@ impl Learner {
 
     pub fn add_lesson_plan(&mut self, lesson_plan: LessonPlan) {
         self.lesson_plans.push(lesson_plan);
+    }
+
+    pub fn set_current_lesson(&mut self, lesson: Lesson) {
+        let mut new_lesson_plan = LessonPlan::new(lesson.get_name().clone());
+        new_lesson_plan.add_lesson(lesson);
+        self.add_lesson_plan(new_lesson_plan.clone());
     }
 
     pub fn get_lesson_plans(&self) -> &Vec<LessonPlan> {
