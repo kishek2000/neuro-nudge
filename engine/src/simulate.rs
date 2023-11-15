@@ -1,30 +1,30 @@
 use crate::simulated_learners::generate_simulated_learners_with_q_tables;
+use serde_json::{json, Value};
 use std::cmp::max;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
+use std::vec;
 use types::content::{DifficultyLevel, Lesson, LessonPlan, LessonResult, QuestionAttempt};
-use types::engine::{Mastery, QTableAlgorithm};
+use types::engine::{Mastery, QTableAlgorithm, Strategy};
+use types::learner::Learner;
 
 use crate::simulated_content;
 
 use rand::Rng;
 
-pub fn run_simulation() {
-    // // Load the ContentModule (e.g., "Shapes") with lessons`` (use functions from simulated_content.rs).
-    // // For now, we'll use a single module with lessons as an example.
-    // let shapes_module = ContentModule::new("Shapes".to_string());
+// Strategy 1: Only Q Learning with no mastery thresholds.
+pub fn run_simulation_strategy_1() {
     // Load lessons for the "Shapes" module using functions from simulated_content.rs.
     let lessons = simulated_content::generate_shapes_lessons();
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
-        generate_simulated_learners_with_q_tables(&lessons);
-
-    // Define the number of iterations for the simulation.
-    let num_iterations = 10000; // You can adjust this as needed.
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy1);
 
     // Create a file to write simulation results (e.g., Q-tables).
-    let mut output_file = File::create("simulation_results.txt").expect("Failed to create file");
+    let output_file =
+        File::create("strategy_1_simulation_results.json").expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in shapes.
@@ -33,15 +33,60 @@ pub fn run_simulation() {
         learner.add_lesson_plan(lesson_plan);
     }
 
+    // Run the simulation.
+    run_simulation(
+        learner_ids,
+        learners_with_q_tables,
+        output_file,
+        lessons.clone(),
+    );
+}
+
+// Strategy 2: Only Q Learning with mastery thresholds.
+pub fn run_simulation_strategy_2() {
+    // Load lessons from the "Shapes" module using functions from simulated_content.rs.
+    let lessons = simulated_content::generate_shapes_lessons();
+
+    // Generate simulated learners with Q-tables.
+    let (learner_ids, mut learners_with_q_tables) =
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy2);
+
+    // Create a file to write simulation results (e.g., Q-tables).
+    let output_file =
+        File::create("strategy_2_simulation_results.json").expect("Failed to create file");
+
+    for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
+        // Initialise with first lesson in shapes.
+        let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
+        lesson_plan.add_lesson(lessons[0].clone());
+        learner.add_lesson_plan(lesson_plan);
+    }
+
+    // Run the simulation.
+    run_simulation(
+        learner_ids,
+        learners_with_q_tables,
+        output_file,
+        lessons.clone(),
+    );
+}
+
+fn run_simulation(
+    learner_ids: Vec<&str>,
+    mut learners_with_q_tables: HashMap<String, (Learner, QTableAlgorithm)>,
+    mut output_file: File,
+    lessons: Vec<Lesson>,
+) {
+    // Define the number of iterations for the simulation.
+    let num_iterations = 5000; // You can adjust this as needed.
+
+    let mut iteration_jsons = vec![];
+
     // Outer Iterations loop.
     for iteration in 0..num_iterations {
         println!("Iteration: {}", iteration + 1);
-        writeln!(
-            &mut output_file,
-            "============================================================================================"
-        )
-        .expect("Failed to write to file");
-        writeln!(&mut output_file, "ITERATION: {}\n", iteration).expect("Failed to write to file");
+
+        let mut values: Vec<Value> = vec![];
 
         // Main simulation loop.
         for learner_id in learner_ids.clone() {
@@ -52,13 +97,16 @@ pub fn run_simulation() {
             let difficulty_level = lesson.clone().get_difficulty_level(); // Replace with your logic to get the difficulty level.
 
             // Simulate the learner attempting a lesson and get the lesson result.
-            let lesson_result = simulate_lesson_attempt(&lesson);
+            let lesson_result = simulate_lesson_attempt(&lesson, q_table.clone());
 
             // Update learner's Q-table based on lesson result.
-            let mastery_level = update_q_table(q_table, lesson, difficulty_level, &lesson_result);
+            let mastery_level =
+                update_q_table(q_table, lesson, difficulty_level.clone(), &lesson_result);
 
             // Write learner's Q-table to the output file.
-            write_q_table_to_file(learner_id, q_table, &mut output_file, &lessons);
+            let value =
+                write_q_table_to_file(learner_id, q_table, &lessons, difficulty_level.clone());
+            values.push(value);
 
             // Choose the next lesson based on Q-table (you need to implement this logic).
             let next_lesson = choose_lesson_based_on_q_table(q_table, &lesson, mastery_level);
@@ -66,18 +114,30 @@ pub fn run_simulation() {
             // Set the learner's next lesson.
             learner.set_current_lesson(next_lesson);
         }
-        writeln!(
-            &mut output_file,
-            "============================================================================================\n"
-        )
-        .expect("Failed to write to file");
+
+        let iteration_json_obj = json!({
+            "iteration": iteration + 1,
+            "values": values
+        });
+
+        iteration_jsons.push(iteration_json_obj);
     }
+
+    let simulation_results = json!({ "iterations": iteration_jsons });
+
+    // Write the simulation results to a file.
+    write!(
+        output_file,
+        "{}",
+        serde_json::to_string_pretty(&simulation_results).unwrap()
+    )
+    .expect("Failed to write to file");
 }
 
 fn choose_lesson_based_on_q_table(
     q_table: &QTableAlgorithm,
     current_lesson: &Lesson,
-    mastery_level: Mastery,
+    mastery_level: Option<Mastery>,
 ) -> Lesson {
     q_table
         .epsilon_greedy_action(
@@ -90,7 +150,10 @@ fn choose_lesson_based_on_q_table(
         .0
 }
 
-fn simulate_lesson_attempt(current_lesson: &Lesson) -> LessonResult {
+fn simulate_lesson_attempt(
+    current_lesson: &Lesson,
+    current_learner_q_table: QTableAlgorithm,
+) -> LessonResult {
     // Generate a simulated lesson result.
     let mut question_attempts = Vec::new();
     let num_attempts = current_lesson.get_questions().len(); // Number of questions in the lesson.
@@ -125,16 +188,36 @@ fn simulate_lesson_attempt(current_lesson: &Lesson) -> LessonResult {
 
     for question in current_lesson.get_questions() {
         // Calculate the probability of answering correctly based on lesson difficulty.
-        let difficulty_factor = match current_lesson.clone().get_difficulty_level() {
-            DifficultyLevel::VeryEasy => 0.99, // Easier lessons have a higher chance of correctness.
-            DifficultyLevel::Easy => 0.95,
-            DifficultyLevel::Medium => 0.85,
-            DifficultyLevel::Hard => 0.75,
-            DifficultyLevel::VeryHard => 0.7,
-            DifficultyLevel::Expert => 0.65,
-            DifficultyLevel::Master => 0.6,
-            DifficultyLevel::Grandmaster => 0.55,
+        let mut correctness_factor = match current_lesson.clone().get_difficulty_level() {
+            DifficultyLevel::VeryEasy => 0.95, // Easier lessons have a higher chance of correctness.
+            DifficultyLevel::Easy => 0.85,
+            DifficultyLevel::Medium => 0.7,
+            DifficultyLevel::Hard => 0.6,
+            DifficultyLevel::VeryHard => 0.55,
+            DifficultyLevel::Expert => 0.5,
+            DifficultyLevel::Master => 0.45,
+            DifficultyLevel::Grandmaster => 0.4,
         };
+
+        // Within the context of what we are solving, as a learner becomes more accustomed
+        // to a particular difficulty or makes progress, their chances of success should increase.
+        // While this doesn't mean mastery, it means it should at least increase, meaning the
+        // correctness_factor variable above in turn should increase, **depending on if the learner
+        // has made progress in that difficulty level**. We should still not make it too easy as
+        // reinforcement is very important for ASD learners even on something they have learnt well
+        // already, but we should make it easier than it was before.
+        let current_q_value = current_learner_q_table
+            .get(&(
+                current_lesson.clone(),
+                current_lesson.clone().get_difficulty_level(),
+            ))
+            .unwrap_or(&0.0);
+
+        // If the learner has made progress in the current difficulty level, decrease the difficulty factor
+        // by a factor that is relative to the progress.
+        if current_q_value > &0.0 {
+            correctness_factor += current_q_value * 0.1;
+        }
 
         let mut attempts = 0;
         let mut is_correct = false;
@@ -142,7 +225,7 @@ fn simulate_lesson_attempt(current_lesson: &Lesson) -> LessonResult {
         while !is_correct {
             let rand_value = rand::thread_rng().gen::<f64>();
             // Simulate learner's answer attempt (random correctness).
-            is_correct = rand_value < difficulty_factor;
+            is_correct = rand_value < correctness_factor.into();
 
             // Increment the number of attempts.
             attempts += 1;
@@ -175,7 +258,7 @@ fn update_q_table(
     lesson: &Lesson,
     difficulty_level: DifficultyLevel,
     lesson_result: &LessonResult,
-) -> Mastery {
+) -> Option<Mastery> {
     // Update the learner's Q-table based on the lesson result.
     let state = (lesson.clone(), difficulty_level);
     q_table.update(state, lesson_result)
@@ -184,43 +267,48 @@ fn update_q_table(
 fn write_q_table_to_file(
     learner_id: &str,
     q_table: &QTableAlgorithm,
-    file: &mut File,
     lessons: &Vec<Lesson>,
-) {
-    // Define the width for each column.
-    let width = 10;
+    difficulty_level: DifficultyLevel,
+) -> Value {
+    let very_easy = q_table
+        .get(&(lessons[0].clone(), DifficultyLevel::VeryEasy))
+        .unwrap_or(&0.0);
+    let easy = q_table
+        .get(&(lessons[1].clone(), DifficultyLevel::Easy))
+        .unwrap_or(&0.0);
+    let medium = q_table
+        .get(&(lessons[2].clone(), DifficultyLevel::Medium))
+        .unwrap_or(&0.0);
+    let hard = q_table
+        .get(&(lessons[3].clone(), DifficultyLevel::Hard))
+        .unwrap_or(&0.0);
+    let very_hard = q_table
+        .get(&(lessons[4].clone(), DifficultyLevel::VeryHard))
+        .unwrap_or(&0.0);
+    let expert = q_table
+        .get(&(lessons[5].clone(), DifficultyLevel::Expert))
+        .unwrap_or(&0.0);
+    let master = q_table
+        .get(&(lessons[6].clone(), DifficultyLevel::Master))
+        .unwrap_or(&0.0);
+    let grandmaster = q_table
+        .get(&(lessons[7].clone(), DifficultyLevel::Grandmaster))
+        .unwrap_or(&0.0);
 
-    // Write learner's ID to the output file.
-    writeln!(file, "Learner ID: {:<width$}", learner_id, width = width)
-        .expect("Failed to write to file");
-    writeln!(file, "---------------------------").expect("Failed to write to file");
+    let difficulty_str: &str = difficulty_level.clone().into();
 
-    // Write header row with fixed spacing.
-    writeln!(
-        file,
-        "{:<width$}{:<width$}{:<width$}{:<width$}{:<width$}{:<width$}{:<width$}{:<width$}{:<width$}",
-        "Lesson", "VeryEasy", "Easy", "Medium", "Hard", "VeryHard", "Expert", "Master", "Grandmaster",
-        width = width
-    )
-    .expect("Failed to write to file");
-
-    // Iterate over lessons and difficulties and write Q-values with fixed spacing.
-    write!(
-        file,
-        "{:<width$}{:<width$.2}{:<width$.2}{:<width$.2}{:<width$.2}{:<width$.2}{:<width$.2}{:<width$.2}{:<width$.2}",
-        "Shapes:",
-        q_table.get(&(lessons[0].clone(), DifficultyLevel::VeryEasy)).unwrap_or(&0.0),
-        q_table.get(&(lessons[1].clone(), DifficultyLevel::Easy)).unwrap_or(&0.0),
-        q_table.get(&(lessons[2].clone(), DifficultyLevel::Medium)).unwrap_or(&0.0),
-        q_table.get(&(lessons[3].clone(), DifficultyLevel::Hard)).unwrap_or(&0.0),
-        q_table.get(&(lessons[4].clone(), DifficultyLevel::VeryHard)).unwrap_or(&0.0),
-        q_table.get(&(lessons[5].clone(), DifficultyLevel::Expert)).unwrap_or(&0.0),
-        q_table.get(&(lessons[6].clone(), DifficultyLevel::Master)).unwrap_or(&0.0),
-        q_table.get(&(lessons[7].clone(), DifficultyLevel::Grandmaster)).unwrap_or(&0.0),
-        width = width
-    )
-    .expect("Failed to write to file");
-
-    // Add a newline at the end of the row.
-    writeln!(file, "\n").expect("Failed to write to file");
+    json!({
+        "learner_id": learner_id,
+        "values": {
+            "VeryEasy": very_easy,
+            "Easy": easy,
+            "Medium": medium,
+            "Hard": hard,
+            "VeryHard": very_hard,
+            "Expert": expert,
+            "Master": master,
+            "Grandmaster": grandmaster
+        },
+        "difficulty_level": difficulty_str
+    })
 }

@@ -123,6 +123,22 @@ impl From<&str> for DifficultyLevel {
     }
 }
 
+// into str impl for difficulty level
+impl Into<&str> for DifficultyLevel {
+    fn into(self) -> &'static str {
+        match self {
+            DifficultyLevel::VeryEasy => "VeryEasy",
+            DifficultyLevel::Easy => "Easy",
+            DifficultyLevel::Medium => "Medium",
+            DifficultyLevel::Hard => "Hard",
+            DifficultyLevel::VeryHard => "VeryHard",
+            DifficultyLevel::Expert => "Expert",
+            DifficultyLevel::Master => "Master",
+            DifficultyLevel::Grandmaster => "Grandmaster",
+        }
+    }
+}
+
 /// Lesson
 /// A lesson is a unit of a lesson plam. It has a name and a list of questions that
 /// the learner requires to attempt.

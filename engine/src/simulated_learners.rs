@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use types::content::Lesson;
-use types::engine::QTableAlgorithm;
+use types::engine::{QTableAlgorithm, Strategy};
 use types::learner::{ASDTraits, Communicability, CommunicationLevel, Learner};
 
 fn generate_simulated_learner(
@@ -23,6 +23,7 @@ fn generate_simulated_learner(
 
 pub fn generate_simulated_learners_with_q_tables(
     lessons: &Vec<Lesson>,
+    strategy: Strategy,
 ) -> (Vec<&str>, HashMap<String, (Learner, QTableAlgorithm)>) {
     let mut simulated_learners_with_q_tables = HashMap::new();
 
@@ -69,12 +70,12 @@ pub fn generate_simulated_learners_with_q_tables(
     );
 
     // Initialise a q table for all lessons and their difficulties, with a value of 0
-    let mut q_table_1 = QTableAlgorithm::new(None, 0.2);
-    let mut q_table_2 = QTableAlgorithm::new(None, 0.2);
-    let mut q_table_3 = QTableAlgorithm::new(None, 0.2);
-    let mut q_table_4 = QTableAlgorithm::new(None, 0.2);
-    let mut q_table_5 = QTableAlgorithm::new(None, 0.2);
-    let mut q_table_6 = QTableAlgorithm::new(None, 0.2);
+    let mut q_table_1 = QTableAlgorithm::new(None, 0.3, strategy.clone());
+    let mut q_table_2 = QTableAlgorithm::new(None, 0.3, strategy.clone());
+    let mut q_table_3 = QTableAlgorithm::new(None, 0.3, strategy.clone());
+    let mut q_table_4 = QTableAlgorithm::new(None, 0.3, strategy.clone());
+    let mut q_table_5 = QTableAlgorithm::new(None, 0.3, strategy.clone());
+    let mut q_table_6 = QTableAlgorithm::new(None, 0.3, strategy.clone());
 
     let mut q_tables = vec![
         &mut q_table_1,

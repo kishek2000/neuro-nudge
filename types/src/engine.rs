@@ -57,16 +57,29 @@ pub struct QTableAlgorithm {
     epsilon: f32,
     discount_factor: f32,
     learning_rate: f32,
+    strategy: Strategy,
+}
+
+/// Strategy of engine
+/// 1: Q learning without mastery
+/// 2: Q learning with mastery
+/// 3: Collaborative filtering with 2
+#[derive(Debug, Clone, PartialEq)]
+pub enum Strategy {
+    Strategy1,
+    Strategy2,
+    Strategy3,
 }
 
 impl QTableAlgorithm {
-    pub fn new(q_table: Option<QTable>, epsilon: f32) -> QTableAlgorithm {
+    pub fn new(q_table: Option<QTable>, epsilon: f32, strategy: Strategy) -> QTableAlgorithm {
         QTableAlgorithm {
             id: uuid::Uuid::new_v4().to_string(),
             q_table: q_table.unwrap_or(HashMap::new()),
             discount_factor: 0.25,
             learning_rate: 0.75,
             epsilon,
+            strategy,
         }
     }
 
@@ -88,7 +101,7 @@ impl QTableAlgorithm {
     pub fn epsilon_greedy_action(
         &self,
         state: &(Lesson, DifficultyLevel),
-        mastery_level: Mastery,
+        mastery_level: Option<Mastery>,
     ) -> (Lesson, DifficultyLevel) {
         let rand_value = rand::thread_rng().gen::<f32>();
         if rand_value < self.epsilon {
@@ -106,7 +119,7 @@ impl QTableAlgorithm {
     fn choose_next_difficulty(
         &self,
         state: &(Lesson, DifficultyLevel),
-        mastery_level: Mastery,
+        mastery_level: Option<Mastery>,
     ) -> (Lesson, DifficultyLevel) {
         let difficulties = [
             DifficultyLevel::VeryEasy,
@@ -124,41 +137,53 @@ impl QTableAlgorithm {
             .position(|d| d.clone() == state.1)
             .unwrap_or(0);
 
-        let mut next_index = match mastery_level {
-            Mastery::Full => current_index + 1, // Move up one level for full mastery
-            // With a random probability of 0.6, move up one level for competent mastery
-            Mastery::Competent => {
-                if rand::thread_rng().gen::<f32>() < 0.6 {
-                    current_index + 1
-                } else {
-                    current_index
+        if self.strategy == Strategy::Strategy1 {
+            // No mastery level considered, simply choose next difficulty
+            let next_index = current_index + 1;
+            let next_index = next_index.min(difficulties.len() - 1); // Ensure index is within bounds
+            let next_index = next_index.max(0); // Ensure index is within bounds
+
+            let next_difficulty = difficulties[next_index].clone();
+
+            let lesson_with_difficulty = self.q_table.keys().find(|(_, d)| d == &next_difficulty);
+
+            (
+                lesson_with_difficulty.unwrap().0.clone(),
+                difficulties[next_index].clone(),
+            )
+        } else {
+            let mut next_index = match mastery_level.unwrap() {
+                Mastery::Full => current_index + 1, // Move up one level for full mastery
+                // With a random probability of 0.6, move up one level for competent mastery
+                Mastery::Competent => {
+                    if rand::thread_rng().gen::<f32>() < 0.6 {
+                        current_index + 1
+                    } else {
+                        current_index
+                    }
                 }
-            }
-            Mastery::Basic => current_index, // Stay at current level for basic mastery
-            // Drop a level if below basic mastery, at probability of 0.4. That means there's a 0.6 chance you stay as is.
-            _ => {
-                if rand::thread_rng().gen::<f32>() < 0.4 {
+                Mastery::Basic => current_index, // Stay at current level for basic mastery
+                // Drop a level if below basic mastery
+                _ => {
                     if current_index == 0 {
                         0
                     } else {
                         current_index - 1
                     }
-                } else {
-                    current_index
                 }
-            }
-        };
+            };
 
-        next_index = next_index.min(difficulties.len() - 1); // Ensure index is within bounds
-        next_index = next_index.max(0); // Ensure index is within bounds
-        let next_difficulty = difficulties[next_index].clone();
+            next_index = next_index.min(difficulties.len() - 1); // Ensure index is within bounds
+            next_index = next_index.max(0); // Ensure index is within bounds
+            let next_difficulty = difficulties[next_index].clone();
 
-        let lesson_with_difficulty = self.q_table.keys().find(|(_, d)| d == &next_difficulty);
+            let lesson_with_difficulty = self.q_table.keys().find(|(_, d)| d == &next_difficulty);
 
-        (
-            lesson_with_difficulty.unwrap().0.clone(),
-            difficulties[next_index].clone(),
-        )
+            (
+                lesson_with_difficulty.unwrap().0.clone(),
+                difficulties[next_index].clone(),
+            )
+        }
     }
 
     /// Update the value of some state-action pair, based on a lesson result
@@ -167,7 +192,7 @@ impl QTableAlgorithm {
         &mut self,
         state: (Lesson, DifficultyLevel),
         lesson_result: &LessonResult,
-    ) -> Mastery {
+    ) -> Option<Mastery> {
         let old_value = self.q_table.get(&state).unwrap_or(&0.0);
 
         let lesson_difficulty = lesson_result.get_difficulty_level();
@@ -189,48 +214,128 @@ impl QTableAlgorithm {
         let total_hints_requested = lesson_result.get_total_hints_requested();
 
         // Weights for each factor (I might adjust these further based on importance)
-        let time_taken_weight = 0.1 * difficulty_weight;
+        let time_taken_weight = 0.3 * difficulty_weight;
         let incorrect_attempts_weight = 0.5 * difficulty_weight;
-        let hints_requested_weight = 0.1 * difficulty_weight;
+        let hints_requested_weight = 0.2 * difficulty_weight;
 
-        // Normalized factors within the range (0 to 1)
-        let time_taken_factor = total_time_taken / 100.0;
-        let incorrect_attempts_factor = total_incorrect_attempts as f32 / total_attempts;
-        let hints_requested_factor = total_hints_requested as f32 / total_attempts;
+        // Overall reward calculation - the less time someone takes, the less incorrect they are, and less hints they request,
+        // the higher the reward should be overall
 
-        // Exponential transformation constants - we want extreme values to have high impact.
-        let time_taken_exp_factor = 0.03;
-        let incorrect_attempts_exp_factor = 0.1;
-        let hints_requested_exp_factor = 0.01;
+        // The time taken is currently simulated as follows:
+        // let time_taken = match current_lesson.clone().get_difficulty_level() {
+        //     DifficultyLevel::VeryEasy => {
+        //         // Simulate quicker time for very easy lessons.
+        //         (rand::thread_rng().gen::<f64>() * 5.0) + 5.0 // Random time between 5 to 10 seconds.
+        //     }
+        //     DifficultyLevel::Easy => {
+        //         (rand::thread_rng().gen::<f64>() * 5.0) + 10.0 // Random time between 10 to 15 seconds.
+        //     }
+        //     DifficultyLevel::Medium => {
+        //         (rand::thread_rng().gen::<f64>() * 10.0) + 20.0 // Random time between 20 to 30 seconds.
+        //     }
+        //     DifficultyLevel::Hard => {
+        //         (rand::thread_rng().gen::<f64>() * 10.0) + 30.0 // Random time between 30 to 40 seconds.
+        //     }
+        //     DifficultyLevel::VeryHard => {
+        //         (rand::thread_rng().gen::<f64>() * 10.0) + 40.0 // Random time between 40 to 50 seconds.
+        //     }
+        //     DifficultyLevel::Expert => {
+        //         (rand::thread_rng().gen::<f64>() * 10.0) + 50.0 // Random time between 50 to 60 seconds.
+        //     }
+        //     DifficultyLevel::Master => {
+        //         (rand::thread_rng().gen::<f64>() * 10.0) + 60.0 // Random time between 60 to 70 seconds.
+        //     }
+        //     DifficultyLevel::Grandmaster => {
+        //         (rand::thread_rng().gen::<f64>() * 10.0) + 70.0 // Random time between 70 to 80 seconds.
+        //     }
+        // } as i32;
+        // So, this means when calculating the time taken reward, we need to normalize the time taken
+        // so that the time taken for a particular difficulty level is relatively calculated. This means that
+        // 6 seconds at VeryEasy is a high reward and positive outcome, or 75 seconds in Grandmaster is also
+        // a high reward and positive outcome.
 
-        // AExponential transformations
-        let time_taken_factor = (time_taken_factor * time_taken_weight).powf(time_taken_exp_factor);
-        let incorrect_attempts_factor = (incorrect_attempts_factor * incorrect_attempts_weight)
-            .powf(incorrect_attempts_exp_factor);
-        let hints_requested_factor =
-            (hints_requested_factor * hints_requested_weight).powf(hints_requested_exp_factor);
+        // Hence, calculate the time taken reward as follows:
+        let time_taken_range_for_difficulty = match state.1 {
+            DifficultyLevel::VeryEasy => (5.0, 10.0),
+            DifficultyLevel::Easy => (10.0, 15.0),
+            DifficultyLevel::Medium => (20.0, 30.0),
+            DifficultyLevel::Hard => (30.0, 40.0),
+            DifficultyLevel::VeryHard => (40.0, 50.0),
+            DifficultyLevel::Expert => (50.0, 60.0),
+            DifficultyLevel::Master => (60.0, 70.0),
+            DifficultyLevel::Grandmaster => (70.0, 80.0),
+        };
 
-        // Overall reward calculation
-        let reward = time_taken_factor - incorrect_attempts_factor + hints_requested_factor;
-        let reward = reward.max(-1.0).min(1.0);
-
-        // Adjust the reward based on mastery thresholds
-        let mastery_level = if reward >= FULL_MASTERY_THRESHOLD {
-            Mastery::Full
-        } else if reward >= COMPETENT_MASTERY_THRESHOLD {
-            Mastery::Competent
-        } else if reward >= BASIC_MASTERY_THRESHOLD {
-            Mastery::Basic
+        let time_taken_reward = if total_time_taken <= time_taken_range_for_difficulty.0 {
+            1.0
         } else {
-            Mastery::None
+            // Here, suppose someone took 89 seconds in Grandmaster. They shouldn't be penalised harshly because 9 seconds over is
+            // still not bad for grandmaster, where the total time expected is 70-80 seconds. So, it should be like a normal distrubtion
+            // where the penalty is less harsh the closer you are to the expected time, but much harsher when you get quite far away.
+
+            // So, we can calculate the penalty as follows:
+            let time_taken_range =
+                time_taken_range_for_difficulty.1 - time_taken_range_for_difficulty.0;
+            // The total time taken is 89 seconds, and the expected time is 70-80 seconds. So, the time taken is 9 seconds over the expected time.
+            // So, the penalty should be 9 seconds over the expected time, divided by the total time range, which is 10 seconds. So, the penalty
+            // should be 0.9. So, the reward should be 1.0 - 0.9 = 0.1.
+            // However, this is not what we want as the distance that the time taken is relative to the size of expected time is not accounted for.
+            // So, we can do the following to account for the distance. We can calculate the distance as a percentage of the expected time, for now
+            // this will be the middle of the expected time range. So, the distance is 9 seconds over 75 seconds, which is 12%. So, the penalty should
+            // be 12% of the total time range, which is 1.2 seconds. So, the reward should be 1.0 - 1.2 / 10 = 0.88.
+            let distance_from_expected_time =
+                total_time_taken - (time_taken_range_for_difficulty.1 - time_taken_range / 2.0);
+            let distance_from_expected_time_percentage = distance_from_expected_time
+                / (time_taken_range_for_difficulty.1 - time_taken_range_for_difficulty.0);
+            let penalty = distance_from_expected_time_percentage * time_taken_range;
+            1.0 - (penalty / time_taken_range)
         };
 
-        let new_reward = match mastery_level {
-            Mastery::Full => 1.0,               // Give full reward for the complete mastery
-            Mastery::Competent => reward + 0.1, // Give some additional reward for competent mastery
-            Mastery::Basic => reward, // No additional reward, but no penalty either for basic mastery
-            _ => reward - 0.1,        // Penalize for lack of basic mastery
+        // Calculate the incorrect attempts and hints requested rewards as follows:
+        let incorrect_attempts_reward = if total_incorrect_attempts == 0 {
+            1.0
+        } else {
+            // Here, suppose someone had 3 incorrect attempts out of 10 total attempts. So, the reward should be 1.0 - 0.3 = 0.7.
+            let incorrect_attempts_percentage = total_incorrect_attempts as f32 / total_attempts;
+            1.0 - incorrect_attempts_percentage
         };
+
+        let hints_requested_reward = if total_hints_requested == 0 {
+            1.0
+        } else {
+            // Here, suppose someone requested 2 hints out of 10 total attempts. So, the reward should be 1.0 - 0.2 = 0.8.
+            let hints_requested_percentage = total_hints_requested as f32 / total_attempts;
+            1.0 - hints_requested_percentage
+        };
+
+        // Calculate the overall reward as follows:
+        let mut reward = (time_taken_weight * time_taken_reward
+            + incorrect_attempts_weight * incorrect_attempts_reward
+            + hints_requested_weight * hints_requested_reward)
+            / difficulty_weight;
+
+        reward = reward.max(-1.0).min(1.0);
+
+        // Adjust the reward based on mastery thresholds, if strategy 2
+        let mut mastery_level: Option<Mastery> = None;
+        if self.strategy == Strategy::Strategy2 {
+            mastery_level = if reward >= FULL_MASTERY_THRESHOLD {
+                Some(Mastery::Full)
+            } else if reward >= COMPETENT_MASTERY_THRESHOLD {
+                Some(Mastery::Competent)
+            } else if reward >= BASIC_MASTERY_THRESHOLD {
+                Some(Mastery::Basic)
+            } else {
+                Some(Mastery::None)
+            };
+
+            reward = match mastery_level {
+                Some(Mastery::Full) => 1.0, // Give full reward for the complete mastery
+                Some(Mastery::Competent) => reward + 0.1, // Give some additional reward for competent mastery
+                Some(Mastery::Basic) => reward, // No additional reward, but no penalty either for basic mastery
+                _ => reward - 0.1,              // Penalize for lack of basic mastery
+            };
+        }
 
         let (next_state, _) = self.choose_next_difficulty(&state, mastery_level.clone());
 
@@ -242,11 +347,10 @@ impl QTableAlgorithm {
             .max_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
-        let new_value = old_value
-            + self.learning_rate * (new_reward + self.discount_factor * next_max - old_value);
+        let new_value =
+            old_value + self.learning_rate * (reward + self.discount_factor * next_max - old_value);
 
         self.q_table.insert(state.clone(), new_value);
-
         mastery_level
     }
 

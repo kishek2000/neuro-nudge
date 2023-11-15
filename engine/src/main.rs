@@ -42,8 +42,54 @@ pub mod simulated_content;
 pub mod simulated_learners;
 
 fn main() {
-    println!(">> Welcome to Neuro Nudge!");
-    println!(">> Running simulation now...");
-    simulate::run_simulation();
-    println!(">> Simulation complete!");
+    println!(">> Welcome to NeuroNudge!");
+
+    loop {
+        // Ask which strategy you want to simulate
+        println!(">> Which strategy do you want to simulate?");
+        println!(">> 1. Simulate Q Learning without Mastery Thresholds");
+        println!(">> 2. Simulate Q Learning with Mastery Thresholds");
+        println!(">> 3. Simulate Collaborative Filtering on Q Learning with Mastery Thresholds");
+        println!(">> Q: Quit NeuroNudge");
+
+        let mut input = String::new();
+
+        std::io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+
+        let input = input.trim();
+
+        if input == "Q" {
+            println!(">> Quitting NeuroNudge...");
+            break;
+        }
+
+        if input != "1" && input != "2" && input != "3" {
+            println!(">> Invalid input. Please try again.");
+            continue;
+        }
+
+        let strategy = input.parse::<u8>().unwrap();
+
+        if strategy == 1 {
+            println!(
+                ">> You have selected Strategy 1: Simulate Q Learning without Mastery Thresholds"
+            );
+
+            println!(">> Strategy 1: Running simulation now...");
+            simulate::run_simulation_strategy_1();
+            println!(">> Strategy 1: Simulation complete!");
+        } else if strategy == 2 {
+            println!(
+                ">> You have selected Strategy 2: Simulate Q Learning with Mastery Thresholds"
+            );
+
+            println!(">> Strategy 2: Running simulation now...");
+            simulate::run_simulation_strategy_2();
+            println!(">> Strategy 2: Simulation complete!");
+        } else if strategy == 3 {
+            println!(">> You have selected Strategy 3: Simulate Collaborative Filtering on Q Learning with Mastery Thresholds");
+        }
+    }
 }
