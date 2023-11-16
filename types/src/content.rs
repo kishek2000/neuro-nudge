@@ -188,8 +188,8 @@ impl Lesson {
         &self.name
     }
 
-    pub fn get_difficulty_level(self) -> DifficultyLevel {
-        self.difficulty_level
+    pub fn get_difficulty_level(&self) -> DifficultyLevel {
+        self.difficulty_level.clone()
     }
 }
 

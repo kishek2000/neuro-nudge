@@ -1,12 +1,16 @@
-use crate::simulated_learners::generate_simulated_learners_with_q_tables;
+use crate::simulated_learners::{
+    generate_simulated_learners_for_strategy_3, generate_simulated_learners_with_q_tables,
+};
 use serde_json::{json, Value};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::vec;
-use types::content::{DifficultyLevel, Lesson, LessonPlan, LessonResult, QuestionAttempt};
-use types::engine::{Mastery, QTableAlgorithm, Strategy};
+use types::content::{
+    ContentModule, DifficultyLevel, Lesson, LessonPlan, LessonResult, QuestionAttempt,
+};
+use types::engine::{CollaborativeFilteringAlgorithm, Mastery, QTableAlgorithm, Strategy};
 use types::learner::Learner;
 
 use crate::simulated_content;
@@ -34,7 +38,7 @@ pub fn run_simulation_strategy_1() {
     }
 
     // Run the simulation.
-    run_simulation(
+    run_q_learning_simulation(
         learner_ids,
         learners_with_q_tables,
         output_file,
@@ -63,7 +67,7 @@ pub fn run_simulation_strategy_2() {
     }
 
     // Run the simulation.
-    run_simulation(
+    run_q_learning_simulation(
         learner_ids,
         learners_with_q_tables,
         output_file,
@@ -71,14 +75,172 @@ pub fn run_simulation_strategy_2() {
     );
 }
 
-fn run_simulation(
+// Strategy 3: Collaborative Filtering combined with Q learning using mastery thresholds.
+pub fn run_simulation_strategy_3() {
+    let mut shapes = ContentModule::new("Shapes".to_string());
+
+    // Load lessons from the "Shapes" module using functions from simulated_content.rs.
+    let lessons = simulated_content::generate_shapes_lessons();
+
+    for lesson in lessons.clone() {
+        shapes.add_lesson(lesson);
+    }
+
+    // Generate simulated learners with Q-tables.
+    let (
+        (base_sim_learner_ids, mut base_sim_learners_with_q_tables),
+        (collab_sim_learner_ids, mut collab_sim_learners_with_q_tables),
+    ) = generate_simulated_learners_for_strategy_3(&lessons, Strategy::Strategy2);
+
+    // Create a file to write simulation results (e.g., Q-tables).
+    let output_file =
+        File::create("strategy_3a_simulation_results.json").expect("Failed to create file");
+
+    // Initialise the collaborative algorithm
+    let mut collaborative_algorithm = CollaborativeFilteringAlgorithm::new();
+
+    // From here, the steps are as follows:
+    // 1 - run the base q learning simulation for the first 3 learners
+    // 2 - run a new simulation with same number of iterations where CollaborativeFilteringAlgorithm is used instead
+    //     to generate a recommendation for the next lesson.
+
+    // Base simulation
+    for (_, (learner, _)) in base_sim_learners_with_q_tables.iter_mut() {
+        // Initialise with first lesson in shapes.
+        let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
+        lesson_plan.add_lesson(lessons[0].clone());
+        learner.add_lesson_plan(lesson_plan);
+    }
+
+    base_sim_learners_with_q_tables = run_q_learning_simulation(
+        base_sim_learner_ids,
+        base_sim_learners_with_q_tables.clone(),
+        output_file,
+        lessons.clone(),
+    );
+
+    println!(
+        "{:?}",
+        &base_sim_learners_with_q_tables
+            .get("Learner 1")
+            .unwrap()
+            .1
+            .get_first_5()
+    );
+
+    for (_, (learner, q_table)) in base_sim_learners_with_q_tables.iter_mut() {
+        let mut learner_q_tables = HashMap::new();
+        learner_q_tables.insert(shapes.clone(), q_table.clone());
+        collaborative_algorithm.add_learner(learner.clone(), learner_q_tables);
+        println!("Simulation: Added learner {}", learner.get_id());
+    }
+
+    for (_, (learner, q_table)) in collab_sim_learners_with_q_tables.iter_mut() {
+        // Initialise with first lesson in shapes.
+        let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
+        lesson_plan.add_lesson(lessons[0].clone());
+        learner.add_lesson_plan(lesson_plan);
+
+        let mut learner_q_tables = HashMap::new();
+        learner_q_tables.insert(shapes.clone(), q_table.clone());
+        collaborative_algorithm.add_learner(learner.clone(), learner_q_tables);
+        println!("Simulation: Added learner {}", learner.get_id());
+    }
+
+    // New simulation
+    let num_iterations = 250;
+
+    // Create a file to write simulation results (e.g., Q-tables).
+    let mut collab_output_file =
+        File::create("strategy_3b_simulation_results.json").expect("Failed to create file");
+
+    let mut iteration_jsons = vec![];
+
+    // Outer Iterations loop.
+    for iteration in 0..num_iterations {
+        println!("Iteration: {}", iteration + 1);
+
+        let mut values: Vec<Value> = vec![];
+
+        // Main simulation loop.
+        for learner_id in collab_sim_learner_ids.clone() {
+            let (learner, q_table) = collab_sim_learners_with_q_tables
+                .get_mut(learner_id)
+                .unwrap();
+
+            let lesson = learner.get_current_lesson();
+            // Get the lesson and difficulty level for the learner.
+            let difficulty_level = lesson.clone().get_difficulty_level(); // Replace with your logic to get the difficulty level.
+
+            // Simulate the learner attempting a lesson and get the lesson result.
+            let lesson_result = simulate_lesson_attempt(&lesson, q_table.clone());
+
+            // Update learner's Q-table based on lesson result.
+            println!(
+                "Learner {} q table state before: {}",
+                learner.get_id(),
+                q_table
+                    .get(&(lesson.clone(), lesson.clone().get_difficulty_level()))
+                    .unwrap()
+            );
+            update_q_table(q_table, lesson, difficulty_level.clone(), &lesson_result);
+            println!(
+                "Learner {} q table state after: {}",
+                learner.get_id(),
+                q_table
+                    .get(&(lesson.clone(), lesson.clone().get_difficulty_level()))
+                    .unwrap()
+            );
+
+            // Write learner's Q-table to the output file.
+            let value =
+                write_q_table_to_file(learner_id, q_table, &lessons, difficulty_level.clone());
+            values.push(value);
+
+            // Choose the next lesson based on Q-table (you need to implement this logic).
+            let next_lesson = choose_lesson_based_on_collaborative_filtering(
+                learner.clone(),
+                shapes.clone(),
+                collaborative_algorithm.clone(),
+                &lessons,
+            );
+
+            println!(
+                "Recommended next lesson: {:?}",
+                next_lesson.get_difficulty_level()
+            );
+
+            // Set the learner's next lesson.
+            learner.set_current_lesson(next_lesson);
+        }
+
+        let iteration_json_obj = json!({
+            "iteration": iteration + 1,
+            "values": values
+        });
+
+        iteration_jsons.push(iteration_json_obj);
+    }
+
+    let simulation_results = json!({ "iterations": iteration_jsons });
+
+    // Write the simulation results to a file.
+    write!(
+        collab_output_file,
+        "{}",
+        serde_json::to_string_pretty(&simulation_results).unwrap()
+    )
+    .expect("Failed to write to file");
+}
+
+fn run_q_learning_simulation(
     learner_ids: Vec<&str>,
     mut learners_with_q_tables: HashMap<String, (Learner, QTableAlgorithm)>,
     mut output_file: File,
     lessons: Vec<Lesson>,
-) {
+) -> HashMap<String, (Learner, QTableAlgorithm)> {
     // Define the number of iterations for the simulation.
-    let num_iterations = 5000; // You can adjust this as needed.
+    let num_iterations = 250; // You can adjust this as needed.
 
     let mut iteration_jsons = vec![];
 
@@ -132,6 +294,8 @@ fn run_simulation(
         serde_json::to_string_pretty(&simulation_results).unwrap()
     )
     .expect("Failed to write to file");
+
+    learners_with_q_tables
 }
 
 fn choose_lesson_based_on_q_table(
@@ -148,6 +312,23 @@ fn choose_lesson_based_on_q_table(
             mastery_level,
         )
         .0
+}
+
+fn choose_lesson_based_on_collaborative_filtering(
+    learner: Learner,
+    module: ContentModule,
+    collaborative_algorithm: CollaborativeFilteringAlgorithm,
+    lessons: &Vec<Lesson>,
+) -> Lesson {
+    let recommended_difficulty = collaborative_algorithm
+        .recommend_lesson_difficulty(&learner, &module)
+        .unwrap();
+
+    let lesson = lessons
+        .iter()
+        .find(|l| l.get_difficulty_level().eq(&recommended_difficulty.clone()));
+
+    lesson.unwrap().clone()
 }
 
 fn simulate_lesson_attempt(
@@ -190,8 +371,8 @@ fn simulate_lesson_attempt(
         // Calculate the probability of answering correctly based on lesson difficulty.
         let mut correctness_factor = match current_lesson.clone().get_difficulty_level() {
             DifficultyLevel::VeryEasy => 0.95, // Easier lessons have a higher chance of correctness.
-            DifficultyLevel::Easy => 0.85,
-            DifficultyLevel::Medium => 0.7,
+            DifficultyLevel::Easy => 0.8,
+            DifficultyLevel::Medium => 0.65,
             DifficultyLevel::Hard => 0.6,
             DifficultyLevel::VeryHard => 0.55,
             DifficultyLevel::Expert => 0.5,

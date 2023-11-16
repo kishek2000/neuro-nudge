@@ -49,7 +49,7 @@ fn main() {
         println!(">> Which strategy do you want to simulate?");
         println!(">> 1. Simulate Q Learning without Mastery Thresholds");
         println!(">> 2. Simulate Q Learning with Mastery Thresholds");
-        println!(">> 3. Simulate Collaborative Filtering on Q Learning with Mastery Thresholds");
+        println!(">> 3. (todo - form a 3rd strategy)");
         println!(">> Q: Quit NeuroNudge");
 
         let mut input = String::new();
@@ -60,7 +60,7 @@ fn main() {
 
         let input = input.trim();
 
-        if input == "Q" {
+        if input == "Q" || input == "q" {
             println!(">> Quitting NeuroNudge...");
             break;
         }
@@ -89,7 +89,7 @@ fn main() {
             simulate::run_simulation_strategy_2();
             println!(">> Strategy 2: Simulation complete!");
         } else if strategy == 3 {
-            println!(">> You have selected Strategy 3: Simulate Collaborative Filtering on Q Learning with Mastery Thresholds");
+            println!(">> You have selected Strategy 3: (todo - form a 3rd strategy)");
         }
     }
 }

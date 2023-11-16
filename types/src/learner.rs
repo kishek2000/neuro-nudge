@@ -63,7 +63,7 @@ impl ASDTraits {
 /// A learner is a person who is learning. They have a name, an age, and a set of
 /// lesson plans that they are working on. They also have a unique set of measurements
 /// for their ASD traits.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Learner {
     id: String,
     name: String,

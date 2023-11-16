@@ -92,6 +92,15 @@ impl QTableAlgorithm {
         self.q_table.get(state)
     }
 
+    // Get values of the first 5 pairs
+    pub fn get_first_5(&self) -> Vec<(DifficultyLevel, &f32)> {
+        self.q_table
+            .iter()
+            .take(5)
+            .map(|(k, v)| (k.1.clone(), v))
+            .collect::<Vec<_>>()
+    }
+
     /// Get the id of the Q-Table.
     pub fn get_id(&self) -> &str {
         &self.id
@@ -390,6 +399,7 @@ impl QTableAlgorithm {
 /// like the QTableAlgorithm struct.
 /// The recommendation is based on the q table map of other learners as well as
 /// similarity based on ASD traits, all by using collaborative filtering.
+#[derive(Debug, Clone)]
 pub struct CollaborativeFilteringAlgorithm {
     // The mapping between all learners and their q table map.
     learners_data: HashMap<Learner, HashMap<ContentModule, QTableAlgorithm>>,
@@ -422,7 +432,15 @@ impl CollaborativeFilteringAlgorithm {
         learner: &Learner,
         module: &ContentModule,
     ) -> Option<DifficultyLevel> {
-        if let Some(q_tables) = self.learners_data.get(learner) {
+        let learner_id = learner.get_id();
+        let entry = self
+            .learners_data
+            .iter()
+            .find(|(l, _)| l.get_id() == learner_id);
+
+        if entry.is_some() {
+            let (learner, q_tables) = entry.unwrap();
+
             if let Some(q_table) = q_tables.get(module) {
                 let mut most_similar_learner: Option<&Learner> = None;
                 let mut most_similar_similarity = f32::NEG_INFINITY;
@@ -464,6 +482,8 @@ impl CollaborativeFilteringAlgorithm {
                     }
                 }
             }
+        } else {
+            println!("Could not find learner :(");
         }
 
         None // Return None if no recommendation can be made.
@@ -550,8 +570,13 @@ impl CollaborativeFilteringAlgorithm {
         magnitude_1 = magnitude_1.sqrt();
         magnitude_2 = magnitude_2.sqrt();
 
+        let magnitude_product = magnitude_1 * magnitude_2;
         // Calculate the cosine similarity.
-        let similarity = dot_product / (magnitude_1 * magnitude_2);
+        let similarity = if magnitude_product > 0.0 {
+            dot_product / (magnitude_1 * magnitude_2)
+        } else {
+            0.0
+        };
 
         similarity
     }
