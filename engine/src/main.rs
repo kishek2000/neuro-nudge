@@ -72,7 +72,7 @@ fn main() {
             simulate::run_simulation_strategy_2();
             println!(">> Strategy 2: Simulation complete!");
         } else if strategy == 3 {
-            println!(">> You have selected Strategy 3: (todo - form a 3rd strategy)");
+            println!(">> You have selected Strategy 3: Simulate Q Learning with Mastery Thresholds and Decaying Q Values");
 
             println!(">> Strategy 3: Running simulation now...");
             simulate::run_simulation_strategy_3();
