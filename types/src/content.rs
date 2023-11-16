@@ -330,7 +330,7 @@ impl Prompt {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum PromptType {
     Image,
-    Video,
+    Video(String), // The string is the textual instruction attached to the video.
     Text,
 }
 

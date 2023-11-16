@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Ask for strategy 1 or 2
-strategy = input("Which strategy would you like to plot? (1 or 2): ")
-while strategy not in ["1", "2"]:
-    strategy = input("Which strategy would you like to plot? (1 or 2): ")
+strategy = input("Which strategy would you like to plot?: ")
+while strategy not in ["1", "2", "3"]:
+    strategy = input("Which strategy would you like to plot?: ")
 
 # Load your JSON data
 with open(f'./engine/strategy_{strategy}_simulation_results.json', 'r') as file:

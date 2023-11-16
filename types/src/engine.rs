@@ -13,22 +13,12 @@
 //!   means if the student did great in a lesson, then the q table will be updated to
 //!   reflect that with a reward that is positive, vice versa.
 //!
-//!   However, when there is am ample network of learners in the system, then the
-//!   recommendation will also use collaborative filtering to take into account
-//!   the q table data of other learners.
-//!
-//!   The goal is thus to recommend lesson plans based on the progress of similar
-//!   learners in a module, where similarity is measured by similar progress AND by
-//!   similarity in ASD traits.
 
 use std::collections::HashMap;
 
 use rand::Rng;
 
-use crate::{
-    content::{ContentModule, DifficultyLevel, Lesson, LessonResult},
-    learner::{ASDTraits, Learner},
-};
+use crate::content::{DifficultyLevel, Lesson, LessonResult};
 
 // Define mastery thresholds as constants
 const BASIC_MASTERY_THRESHOLD: f32 = 0.5;
@@ -58,12 +48,17 @@ pub struct QTableAlgorithm {
     discount_factor: f32,
     learning_rate: f32,
     strategy: Strategy,
+    decay_counters: HashMap<DifficultyLevel, f32>,
+    /// Keeps track of how many attempts have passed since a particular difficulty
+    /// level was attempted
+    total_difficulty_non_attempts: HashMap<DifficultyLevel, f32>,
+    has_attempted_difficulty: HashMap<DifficultyLevel, bool>,
 }
 
 /// Strategy of engine
 /// 1: Q learning without mastery
 /// 2: Q learning with mastery
-/// 3: Collaborative filtering with 2
+/// 3: (todo - form a 3rd strategy)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Strategy {
     Strategy1,
@@ -73,6 +68,35 @@ pub enum Strategy {
 
 impl QTableAlgorithm {
     pub fn new(q_table: Option<QTable>, epsilon: f32, strategy: Strategy) -> QTableAlgorithm {
+        let mut decay_counters = HashMap::new();
+        let mut total_difficulty_non_attempts = HashMap::new();
+        let difficulties = [
+            DifficultyLevel::VeryEasy,
+            DifficultyLevel::Easy,
+            DifficultyLevel::Medium,
+            DifficultyLevel::Hard,
+            DifficultyLevel::VeryHard,
+            DifficultyLevel::Expert,
+            DifficultyLevel::Master,
+            DifficultyLevel::Grandmaster,
+        ];
+
+        for difficulty in &difficulties {
+            let total_decays_expected = match difficulty {
+                DifficultyLevel::VeryEasy => 2.0,
+                DifficultyLevel::Easy => 3.0,
+                DifficultyLevel::Medium => 4.0,
+                DifficultyLevel::Hard => 5.0,
+                DifficultyLevel::VeryHard => 6.0,
+                DifficultyLevel::Expert => 7.0,
+                DifficultyLevel::Master => 8.0,
+                DifficultyLevel::Grandmaster => 9.0,
+            };
+
+            decay_counters.insert(difficulty.clone(), total_decays_expected);
+            total_difficulty_non_attempts.insert(difficulty.clone(), 0.0);
+        }
+
         QTableAlgorithm {
             id: uuid::Uuid::new_v4().to_string(),
             q_table: q_table.unwrap_or(HashMap::new()),
@@ -80,6 +104,9 @@ impl QTableAlgorithm {
             learning_rate: 0.75,
             epsilon,
             strategy,
+            decay_counters,
+            total_difficulty_non_attempts,
+            has_attempted_difficulty: HashMap::new(),
         }
     }
 
@@ -97,6 +124,35 @@ impl QTableAlgorithm {
         &self.id
     }
 
+    /// Determine if a particular difficulty level is weak in progress
+    fn is_weak_level(&self, difficulty_level: &DifficultyLevel) -> bool {
+        let current_value = self
+            .q_table
+            .iter()
+            .filter(|((_, d), _)| d == difficulty_level)
+            .map(|(_, &v)| v)
+            .max_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(0.0);
+
+        let decay_counter = self.decay_counters.get(difficulty_level).unwrap_or(&0.0);
+        let threshold = 0.5; // Threshold for weakness, can be adjusted
+        current_value <= threshold && *decay_counter > 0.0
+    }
+
+    /// Find the weakest difficulty level in progress
+    fn find_weaker_level(&self) -> Option<DifficultyLevel> {
+        self.decay_counters
+            .keys()
+            .filter(|&level| self.is_weak_level(level))
+            .min_by_key(|&level| {
+                self.total_difficulty_non_attempts
+                    .get(level)
+                    .unwrap_or(&0.0)
+                    .clone() as i32
+            }) // Prioritize the weakest level
+            .cloned()
+    }
+
     // Epsilon-greedy strategy to choose the next action
     pub fn epsilon_greedy_action(
         &self,
@@ -105,8 +161,24 @@ impl QTableAlgorithm {
     ) -> (Lesson, DifficultyLevel) {
         let rand_value = rand::thread_rng().gen::<f32>();
         if rand_value < self.epsilon {
-            // Exploration: choose the next difficulty level.
-            self.choose_next_difficulty(state, mastery_level)
+            if self.strategy == Strategy::Strategy3 {
+                // Exploration: Modified to prioritize weaker levels
+                let weaker_level = self.find_weaker_level();
+                if let Some(level) = weaker_level {
+                    // Return an action for the weaker level
+                    self.q_table
+                        .keys()
+                        .find(|(_, d)| d == &level)
+                        .unwrap()
+                        .clone()
+                } else {
+                    // If no weaker level, choose the next difficulty level
+                    self.choose_next_difficulty(state, mastery_level)
+                }
+            } else {
+                // Exploration: choose the next difficulty level.
+                self.choose_next_difficulty(state, mastery_level)
+            }
         } else {
             // Exploitation: choose the best-known action.
             self.get_best_action(state)
@@ -136,6 +208,20 @@ impl QTableAlgorithm {
             .iter()
             .position(|d| d.clone() == state.1)
             .unwrap_or(0);
+
+        // If we're in strategy 3 (decaying q values) then ensure that
+        // decayed levels - i.e. potentially weak levels, are prioritized
+        let current_difficulty = state.1.clone();
+        let is_current_weak = self.is_weak_level(&current_difficulty);
+        if self.strategy == Strategy::Strategy3 && is_current_weak {
+            // Balance between reinforcing a weak level and moving to a higher difficulty
+            return self
+                .q_table
+                .keys()
+                .find(|(_, d)| d == &current_difficulty)
+                .unwrap()
+                .clone();
+        }
 
         if self.strategy == Strategy::Strategy1 {
             // No mastery level considered, simply choose next difficulty
@@ -195,6 +281,8 @@ impl QTableAlgorithm {
     ) -> Option<Mastery> {
         let old_value = self.q_table.get(&state).unwrap_or(&0.0);
 
+        self.has_attempted_difficulty.insert(state.1.clone(), true);
+
         let lesson_difficulty = lesson_result.get_difficulty_level();
 
         let difficulty_weight = match lesson_difficulty {
@@ -222,33 +310,15 @@ impl QTableAlgorithm {
         // the higher the reward should be overall
 
         // The time taken is currently simulated as follows:
-        // let time_taken = match current_lesson.clone().get_difficulty_level() {
-        //     DifficultyLevel::VeryEasy => {
-        //         // Simulate quicker time for very easy lessons.
-        //         (rand::thread_rng().gen::<f64>() * 5.0) + 5.0 // Random time between 5 to 10 seconds.
-        //     }
-        //     DifficultyLevel::Easy => {
-        //         (rand::thread_rng().gen::<f64>() * 5.0) + 10.0 // Random time between 10 to 15 seconds.
-        //     }
-        //     DifficultyLevel::Medium => {
-        //         (rand::thread_rng().gen::<f64>() * 10.0) + 20.0 // Random time between 20 to 30 seconds.
-        //     }
-        //     DifficultyLevel::Hard => {
-        //         (rand::thread_rng().gen::<f64>() * 10.0) + 30.0 // Random time between 30 to 40 seconds.
-        //     }
-        //     DifficultyLevel::VeryHard => {
-        //         (rand::thread_rng().gen::<f64>() * 10.0) + 40.0 // Random time between 40 to 50 seconds.
-        //     }
-        //     DifficultyLevel::Expert => {
-        //         (rand::thread_rng().gen::<f64>() * 10.0) + 50.0 // Random time between 50 to 60 seconds.
-        //     }
-        //     DifficultyLevel::Master => {
-        //         (rand::thread_rng().gen::<f64>() * 10.0) + 60.0 // Random time between 60 to 70 seconds.
-        //     }
-        //     DifficultyLevel::Grandmaster => {
-        //         (rand::thread_rng().gen::<f64>() * 10.0) + 70.0 // Random time between 70 to 80 seconds.
-        //     }
-        // } as i32;
+        // DifficultyLevel::VeryEasy => // Random time between 5 to 10 seconds.
+        // DifficultyLevel::Easy => // Random time between 10 to 15 seconds.
+        // DifficultyLevel::Medium => // Random time between 20 to 30 seconds.
+        // DifficultyLevel::Hard => { // Random time between 30 to 40 seconds.
+        // DifficultyLevel::VeryHard => { // Random time between 40 to 50 seconds.
+        // DifficultyLevel::Expert => { // Random time between 50 to 60 seconds.
+        // DifficultyLevel::Master => { // Random time between 60 to 70 seconds.
+        // DifficultyLevel::Grandmaster => { // Random time between 70 to 80 seconds.
+
         // So, this means when calculating the time taken reward, we need to normalize the time taken
         // so that the time taken for a particular difficulty level is relatively calculated. This means that
         // 6 seconds at VeryEasy is a high reward and positive outcome, or 75 seconds in Grandmaster is also
@@ -318,7 +388,7 @@ impl QTableAlgorithm {
 
         // Adjust the reward based on mastery thresholds, if strategy 2
         let mut mastery_level: Option<Mastery> = None;
-        if self.strategy == Strategy::Strategy2 {
+        if self.strategy != Strategy::Strategy1 {
             mastery_level = if reward >= FULL_MASTERY_THRESHOLD {
                 Some(Mastery::Full)
             } else if reward >= COMPETENT_MASTERY_THRESHOLD {
@@ -351,6 +421,13 @@ impl QTableAlgorithm {
             old_value + self.learning_rate * (reward + self.discount_factor * next_max - old_value);
 
         self.q_table.insert(state.clone(), new_value);
+
+        self.update_difficulty_non_attempts(lesson_difficulty.clone());
+        // If we're in strategy 3 (decaying q values) then apply decay
+        if self.strategy == Strategy::Strategy3 {
+            self.apply_decay();
+        }
+
         mastery_level
     }
 
@@ -382,177 +459,58 @@ impl QTableAlgorithm {
     ) -> bool {
         self.q_table.contains_key(state_action_pair)
     }
-}
 
-/// Collaborative Filtering Algorithm
-/// This struct has a mapping between all learners and their q table map.
-/// Then, it provides a method to recommend a lesson difficulty for a module just
-/// like the QTableAlgorithm struct.
-/// The recommendation is based on the q table map of other learners as well as
-/// similarity based on ASD traits, all by using collaborative filtering.
-pub struct CollaborativeFilteringAlgorithm {
-    // The mapping between all learners and their q table map.
-    learners_data: HashMap<Learner, HashMap<ContentModule, QTableAlgorithm>>,
-}
-
-impl CollaborativeFilteringAlgorithm {
-    pub fn new() -> CollaborativeFilteringAlgorithm {
-        CollaborativeFilteringAlgorithm {
-            learners_data: HashMap::new(),
-        }
-    }
-
-    pub fn get_total_learners(&self) -> usize {
-        self.learners_data.len()
-    }
-
-    // Add a learner with their Q-Table data.
-    pub fn add_learner(
-        &mut self,
-        learner: Learner,
-        q_tables: HashMap<ContentModule, QTableAlgorithm>,
-    ) {
-        self.learners_data.insert(learner, q_tables);
-    }
-
-    // Get recommendations for a learner based on collaborative filtering.
-    // This recommendation doesn't use a latest lesson result, these are assumed complete in the q table mappings.
-    pub fn recommend_lesson_difficulty(
-        &self,
-        learner: &Learner,
-        module: &ContentModule,
-    ) -> Option<DifficultyLevel> {
-        if let Some(q_tables) = self.learners_data.get(learner) {
-            if let Some(q_table) = q_tables.get(module) {
-                let mut most_similar_learner: Option<&Learner> = None;
-                let mut most_similar_similarity = f32::NEG_INFINITY;
-
-                // Compare the current learner's ASD traits with other learners in the system.
-                for (other_learner, other_q_tables) in &self.learners_data {
-                    if other_learner != learner {
-                        // Similarity score based on ASD traits (weighed higher).
-                        let asd_similarity = self.calculate_asd_similarity(
-                            &learner.get_asd_traits(),
-                            &other_learner.get_asd_traits(),
-                        );
-
-                        // Calculate a similarity score based on Q-Tables.
-                        let q_table_similarity = self.calculate_q_table_similarity(
-                            q_table,
-                            other_q_tables.get(module).unwrap(),
-                        );
-
-                        // Calculate the combined similarity score with a higher weight for ASD traits.
-                        let combined_similarity = 0.6 * asd_similarity + 0.4 * q_table_similarity;
-
-                        if combined_similarity > most_similar_similarity {
-                            most_similar_learner = Some(other_learner);
-                            most_similar_similarity = combined_similarity;
-                        }
-                    }
-                }
-
-                // If a similar learner was found, we should recommend a lesson
-                // difficulty level based on the similar learner's Q-Table.
-                if most_similar_learner.is_some() {
-                    let lesson = learner.get_current_lesson();
-                    let difficulty_level = lesson.clone().get_difficulty_level();
-                    if let Some((_, recommended_level)) =
-                        q_table.get_best_action(&(lesson.clone(), difficulty_level))
-                    {
-                        return Some(recommended_level.clone());
-                    }
-                }
-            }
-        }
-
-        None // Return None if no recommendation can be made.
-    }
-
-    fn calculate_asd_similarity(&self, asd_traits_1: &ASDTraits, asd_traits_2: &ASDTraits) -> f32 {
-        // Calculate similarity based on ASD traits by a weighted sum.
-
-        // Absolute difference in attention span.
-        let attention_span_diff =
-            (asd_traits_1.get_attention_span() - asd_traits_2.get_attention_span()).abs() as f32;
-        let attention_span_similarity = 1.0 - attention_span_diff / 100.0; // Normalize to a 0-1 range.
-
-        // Communicability similarity based on common communicability types.
-        let common_communicability_count = asd_traits_1
-            .get_communicability()
+    fn update_difficulty_non_attempts(&mut self, attempted_difficulty_level: DifficultyLevel) {
+        self.total_difficulty_non_attempts = self
+            .total_difficulty_non_attempts
             .iter()
-            .filter(|&comm| asd_traits_2.get_communicability().contains(comm))
-            .count() as f32;
-        let max_communicability_count = asd_traits_1
-            .get_communicability()
-            .len()
-            .max(asd_traits_2.get_communicability().len())
-            as f32;
-        let communicability_similarity = common_communicability_count / max_communicability_count;
-
-        // Communication level similarity (considered binary in this example).
-        let communication_level_similarity =
-            if asd_traits_1.get_communication_level() == asd_traits_2.get_communication_level() {
-                1.0
-            } else {
-                0.0
-            };
-
-        // Combine individual similarities with appropriate weights - for sake of example right now,
-        // we give most importance to attention span and communicability, and then communication level
-        // comes last.
-        let attention_span_weight = 0.4;
-        let communicability_weight = 0.4;
-        let communication_level_weight = 0.2;
-
-        let similarity = (attention_span_similarity * attention_span_weight)
-            + (communicability_similarity * communicability_weight)
-            + (communication_level_similarity * communication_level_weight);
-
-        similarity
+            .map(|(d, &v)| {
+                let has_attempted = self.has_attempted_difficulty.get(d).unwrap_or(&false);
+                if !has_attempted {
+                    (d.clone(), v)
+                } else if d == &attempted_difficulty_level {
+                    (d.clone(), 0.0) // Reset the counter for the difficulty level that was attempted
+                } else {
+                    (d.clone(), v + 1.0)
+                }
+            })
+            .collect();
     }
 
-    fn calculate_q_table_similarity(
-        &self,
-        q_table_1: &QTableAlgorithm,
-        q_table_2: &QTableAlgorithm,
-    ) -> f32 {
-        // Calculating the similarity based on Q-Tables using cosine similarity. This will be
-        // explained, but basically it's better for this context where learning progress and
-        // direction matters.
+    pub fn apply_decay(&mut self) {
+        // Apply decay to Q-values for difficulty levels based on decay_counters
+        // Adjust the rate of decay or interval for decay events using an exponential backoff strategy
+        self.q_table = self
+            .q_table
+            .iter()
+            .map(|((l, d), &v)| {
+                let non_attempts_counter =
+                    self.total_difficulty_non_attempts.get(d).unwrap_or(&0.0);
 
-        // Collect the set of common state-action pairs between the two Q-Tables.
-        let common_lesson_difficulty_pairs: Vec<(&(Lesson, DifficultyLevel), f32)> = q_table_1
-            .get_lesson_difficulty_pairs()
-            .into_iter()
-            .filter(|(state, _)| q_table_2.has_lesson_difficulty_pair(state))
-            .map(|(state, &value)| (state, value))
+                let required_non_attempts_to_apply_decay = match d {
+                    DifficultyLevel::VeryEasy => 2000.0,
+                    DifficultyLevel::Easy => 1600.0,
+                    DifficultyLevel::Medium => 1400.0,
+                    DifficultyLevel::Hard => 1200.0,
+                    DifficultyLevel::VeryHard => 1000.0,
+                    DifficultyLevel::Expert => 900.0,
+                    DifficultyLevel::Master => 750.0,
+                    DifficultyLevel::Grandmaster => 500.0,
+                };
+
+                let decay_counter = self.decay_counters.get(d).unwrap_or(&0.0);
+                let do_decay = non_attempts_counter >= &required_non_attempts_to_apply_decay
+                    && decay_counter > &0.0;
+
+                if do_decay {
+                    let decay_rate = 1.0 / decay_counter;
+                    self.decay_counters.insert(d.clone(), decay_counter - 1.0);
+                    self.total_difficulty_non_attempts.insert(d.clone(), 0.0);
+                    ((l.clone(), d.clone()), v * decay_rate)
+                } else {
+                    ((l.clone(), d.clone()), v)
+                }
+            })
             .collect();
-
-        if common_lesson_difficulty_pairs.is_empty() {
-            return 0.0; // No common state-action pairs, similarity is zero.
-        }
-
-        // Calculate the dot product of the two vectors.
-        let mut dot_product = 0.0;
-        let mut magnitude_1 = 0.0;
-        let mut magnitude_2 = 0.0;
-
-        for (state, _) in common_lesson_difficulty_pairs {
-            let value_1 = q_table_1.get(state).unwrap();
-            let value_2 = q_table_2.get(state).unwrap();
-
-            dot_product += value_1 * value_2;
-            magnitude_1 += value_1 * value_1;
-            magnitude_2 += value_2 * value_2;
-        }
-
-        magnitude_1 = magnitude_1.sqrt();
-        magnitude_2 = magnitude_2.sqrt();
-
-        // Calculate the cosine similarity.
-        let similarity = dot_product / (magnitude_1 * magnitude_2);
-
-        similarity
     }
 }

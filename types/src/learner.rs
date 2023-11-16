@@ -18,6 +18,13 @@ pub enum CommunicationLevel {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum MotorSkills {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ASDTraits {
     learner_id: String,
     attention_span: i32,
@@ -25,6 +32,7 @@ pub struct ASDTraits {
     /// it means they struggle to communicate in that manner (e.g. verbal)
     communicability: Vec<Communicability>,
     communication_level: CommunicationLevel,
+    motor_skills: MotorSkills,
 }
 
 impl ASDTraits {
@@ -33,12 +41,14 @@ impl ASDTraits {
         attention_span: i32,
         communicability: Vec<Communicability>,
         communication_level: CommunicationLevel,
+        motor_skills: MotorSkills,
     ) -> ASDTraits {
         ASDTraits {
             learner_id,
             attention_span,
             communicability,
             communication_level,
+            motor_skills,
         }
     }
 
@@ -56,6 +66,10 @@ impl ASDTraits {
 
     pub fn get_communication_level(&self) -> &CommunicationLevel {
         &self.communication_level
+    }
+
+    pub fn get_motor_skills(&self) -> &MotorSkills {
+        &self.motor_skills
     }
 }
 

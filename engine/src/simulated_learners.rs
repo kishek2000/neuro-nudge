@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use types::content::Lesson;
 use types::engine::{QTableAlgorithm, Strategy};
-use types::learner::{ASDTraits, Communicability, CommunicationLevel, Learner};
+use types::learner::{ASDTraits, Communicability, CommunicationLevel, Learner, MotorSkills};
 
 fn generate_simulated_learner(
     name: &str,
@@ -27,32 +27,36 @@ pub fn generate_simulated_learners_with_q_tables(
 ) -> (Vec<&str>, HashMap<String, (Learner, QTableAlgorithm)>) {
     let mut simulated_learners_with_q_tables = HashMap::new();
 
-    // Generate two learners with similar ASD traits (Verbal, Medium CommunicationLevel)
+    // Generate two learners with similar ASD traits (Verbal, Medium CommunicationLevel, Low MotorSkills)
     let similar_asd_traits_1 = ASDTraits::new(
         "Learner 1".to_string(),
         5,
         vec![Communicability::Verbal],
         CommunicationLevel::Medium,
+        MotorSkills::Low,
     );
     let similar_asd_traits_2 = ASDTraits::new(
         "Learner 2".to_string(),
         6,
         vec![Communicability::Verbal],
         CommunicationLevel::Medium,
+        MotorSkills::Low,
     );
 
-    // Generate two learners with different ASD traits (NonVerbal, Low CommunicationLevel; Verbal, NonVerbal, High CommunicationLevel)
+    // Generate two learners with different ASD traits (NonVerbal, Low CommunicationLevel; Verbal, NonVerbal, High CommunicationLevel, Medium MotorSkills)
     let different_asd_traits_1 = ASDTraits::new(
         "Learner 3".to_string(),
         7,
         vec![Communicability::NonVerbal],
         CommunicationLevel::Low,
+        MotorSkills::Medium,
     );
     let different_asd_traits_2 = ASDTraits::new(
         "Learner 4".to_string(),
         8,
         vec![Communicability::Verbal, Communicability::NonVerbal],
         CommunicationLevel::High,
+        MotorSkills::High,
     );
 
     // Generate two learners with random ASD traits
@@ -61,12 +65,14 @@ pub fn generate_simulated_learners_with_q_tables(
         9,
         vec![Communicability::Verbal],
         CommunicationLevel::Medium,
+        MotorSkills::High,
     );
     let random_asd_traits_2 = ASDTraits::new(
         "Learner 6".to_string(),
         10,
         vec![Communicability::NonVerbal],
         CommunicationLevel::Low,
+        MotorSkills::High,
     );
 
     // Initialise a q table for all lessons and their difficulties, with a value of 0

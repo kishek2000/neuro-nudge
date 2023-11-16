@@ -9,14 +9,14 @@ use types::content::{DifficultyLevel, Lesson, LessonPlan, LessonResult, Question
 use types::engine::{Mastery, QTableAlgorithm, Strategy};
 use types::learner::Learner;
 
-use crate::simulated_content;
+use crate::{simulated_content_actions, simulated_content_shapes};
 
 use rand::Rng;
 
 // Strategy 1: Only Q Learning with no mastery thresholds.
 pub fn run_simulation_strategy_1() {
     // Load lessons for the "Shapes" module using functions from simulated_content.rs.
-    let lessons = simulated_content::generate_shapes_lessons();
+    let lessons = simulated_content_shapes::generate_shapes_lessons();
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
@@ -45,7 +45,7 @@ pub fn run_simulation_strategy_1() {
 // Strategy 2: Only Q Learning with mastery thresholds.
 pub fn run_simulation_strategy_2() {
     // Load lessons from the "Shapes" module using functions from simulated_content.rs.
-    let lessons = simulated_content::generate_shapes_lessons();
+    let lessons = simulated_content_shapes::generate_shapes_lessons();
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
@@ -54,6 +54,35 @@ pub fn run_simulation_strategy_2() {
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
         File::create("strategy_2_simulation_results.json").expect("Failed to create file");
+
+    for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
+        // Initialise with first lesson in shapes.
+        let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
+        lesson_plan.add_lesson(lessons[0].clone());
+        learner.add_lesson_plan(lesson_plan);
+    }
+
+    // Run the simulation.
+    run_simulation(
+        learner_ids,
+        learners_with_q_tables,
+        output_file,
+        lessons.clone(),
+    );
+}
+
+// Strategy 3: Only Q Learning with decaying q values for reinforced learning.
+pub fn run_simulation_strategy_3() {
+    // Load lessons from the "Actions" module using functions from simulated_content.rs.
+    let lessons = simulated_content_actions::generate_actions_lessons();
+
+    // Generate simulated learners with Q-tables.
+    let (learner_ids, mut learners_with_q_tables) =
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy3);
+
+    // Create a file to write simulation results (e.g., Q-tables).
+    let output_file =
+        File::create("strategy_3_simulation_results.json").expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in shapes.
