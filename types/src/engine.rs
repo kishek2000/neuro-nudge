@@ -136,21 +136,34 @@ impl QTableAlgorithm {
 
         let decay_counter = self.decay_counters.get(difficulty_level).unwrap_or(&0.0);
         let threshold = 0.5; // Threshold for weakness, can be adjusted
-        current_value <= threshold && *decay_counter > 0.0
+                             // current_value <= threshold && *decay_counter > 0.0
+        current_value <= threshold
     }
 
-    /// Find the weakest difficulty level in progress
+    /// Find the weakest difficulty level by q value, but ensure that the
+    /// Level has actually been attempted before as well. The weakness of a level
+    /// is the low q value, but if it's not true in the has_attempted_difficulty
+    /// then it hasn't even been attempted.
     fn find_weaker_level(&self) -> Option<DifficultyLevel> {
         self.decay_counters
             .keys()
+            // Find the weak levels
             .filter(|&level| self.is_weak_level(level))
-            .min_by_key(|&level| {
-                self.total_difficulty_non_attempts
-                    .get(level)
-                    .unwrap_or(&0.0)
-                    .clone() as i32
-            }) // Prioritize the weakest level
-            .cloned()
+            // Find the levels that have been attempted
+            .find(|&level| {
+                let has_attempted = self.has_attempted_difficulty.get(level).unwrap_or(&false);
+                *has_attempted
+            })
+            // Return the weakest of the lot by q value
+            .map(|level| {
+                self.q_table
+                    .iter()
+                    .filter(|((_, d), _)| d == level)
+                    .map(|(_, &v)| v)
+                    .max_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(0.0);
+                level.clone()
+            })
     }
 
     // Epsilon-greedy strategy to choose the next action
