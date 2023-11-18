@@ -134,7 +134,6 @@ impl QTableAlgorithm {
             .max_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
-        let decay_counter = self.decay_counters.get(difficulty_level).unwrap_or(&0.0);
         let threshold = 0.5; // Threshold for weakness, can be adjusted
                              // current_value <= threshold && *decay_counter > 0.0
         current_value <= threshold
