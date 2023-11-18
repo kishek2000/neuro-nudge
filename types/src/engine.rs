@@ -64,6 +64,7 @@ pub enum Strategy {
     Strategy1,
     Strategy2,
     Strategy3,
+    Strategy4,
 }
 
 impl QTableAlgorithm {
@@ -108,6 +109,10 @@ impl QTableAlgorithm {
             total_difficulty_non_attempts,
             has_attempted_difficulty: HashMap::new(),
         }
+    }
+
+    pub fn get_strategy(&self) -> &Strategy {
+        &self.strategy
     }
 
     pub fn insert(&mut self, state: (Lesson, DifficultyLevel), value: f32) {
@@ -173,7 +178,7 @@ impl QTableAlgorithm {
     ) -> (Lesson, DifficultyLevel) {
         let rand_value = rand::thread_rng().gen::<f32>();
         if rand_value < self.epsilon {
-            if self.strategy == Strategy::Strategy3 {
+            if self.strategy == Strategy::Strategy3 || self.strategy == Strategy::Strategy4 {
                 // Exploration: Modified to prioritize weaker levels
                 let weaker_level = self.find_weaker_level();
                 if let Some(level) = weaker_level {
@@ -225,7 +230,9 @@ impl QTableAlgorithm {
         // decayed levels - i.e. potentially weak levels, are prioritized
         let current_difficulty = state.1.clone();
         let is_current_weak = self.is_weak_level(&current_difficulty);
-        if self.strategy == Strategy::Strategy3 && is_current_weak {
+        if (self.strategy == Strategy::Strategy3 || self.strategy == Strategy::Strategy4)
+            && is_current_weak
+        {
             // Balance between reinforcing a weak level and moving to a higher difficulty
             return self
                 .q_table
@@ -436,7 +443,7 @@ impl QTableAlgorithm {
 
         self.update_difficulty_non_attempts(lesson_difficulty.clone());
         // If we're in strategy 3 (decaying q values) then apply decay
-        if self.strategy == Strategy::Strategy3 {
+        if self.strategy == Strategy::Strategy3 || self.strategy == Strategy::Strategy4 {
             self.apply_decay();
         }
 

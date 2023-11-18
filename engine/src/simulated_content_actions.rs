@@ -1,16 +1,24 @@
-use types::content::{
-    Answer, ContentModule, DifficultyLevel, Lesson, Prompt, PromptType, Question, QuestionOption,
-    QuestionOptionType,
+use types::{
+    content::{
+        Answer, ContentModule, DifficultyLevel, Lesson, Prompt, PromptType, Question,
+        QuestionOption, QuestionOptionType,
+    },
+    learner::{ASDTraits, Communicability, CommunicationLevel, MotorSkills},
 };
 
 /// Generates a question for copying an action.
-fn generate_copy_action_question(action_description: &str, action_media_url: &str) -> Question {
+fn generate_copy_action_question(
+    action_description: &str,
+    action_media_url: &str,
+    asd_traits_parameters: Option<ASDTraits>,
+) -> Question {
     let prompt_text = format!("Copy this action: {}", action_description);
     Question::new(
         Prompt::new(PromptType::Video(prompt_text), action_media_url.to_string()), // Using video prompt
         None,
         None,
         Answer::Boolean(false), // Placeholder, actual answer to be provided by instructor
+        asd_traits_parameters,
     )
 }
 
@@ -19,6 +27,7 @@ fn generate_recognize_action_question(
     prompt: &str,
     correct_action_url: &str,
     distractors: Vec<&str>,
+    asd_traits_parameters: Option<ASDTraits>,
 ) -> Question {
     let mut options = vec![correct_action_url];
     options.extend(distractors);
@@ -33,6 +42,7 @@ fn generate_recognize_action_question(
         Some(question_options),
         None,
         Answer::Integer(0), // Assumes the correct action is always the first
+        asd_traits_parameters,
     )
 }
 
@@ -49,12 +59,26 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                     generate_copy_action_question(
                         "Clapping hands",
                         "https://example.com/clapping.gif",
+                        Some(ASDTraits::new(
+                            "".to_string(),
+                            1,
+                            vec![Communicability::Verbal],
+                            CommunicationLevel::Low,
+                            MotorSkills::Low,
+                        )),
                     )
                 } else {
                     generate_recognize_action_question(
                         "Which one is waving hello?",
                         "https://example.com/waving.gif",
                         vec!["https://example.com/nodding.gif"],
+                        Some(ASDTraits::new(
+                            "".to_string(),
+                            1,
+                            vec![Communicability::Verbal],
+                            CommunicationLevel::Low,
+                            MotorSkills::Low,
+                        )),
                     )
                 }
             })
@@ -69,13 +93,26 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Intermediate Actions".to_string(),
         (0..8)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    3, // Attention Span: 3 minutes
+                    vec![Communicability::Verbal, Communicability::NonVerbal],
+                    CommunicationLevel::Medium,
+                    MotorSkills::Medium,
+                );
+
                 if i < 4 {
-                    generate_copy_action_question("Jumping", "https://example.com/jumping.gif")
+                    generate_copy_action_question(
+                        "Jumping",
+                        "https://example.com/jumping.gif",
+                        Some(asd_traits.clone()),
+                    )
                 } else {
                     generate_recognize_action_question(
                         "Which one is nodding?",
                         "https://example.com/nodding.gif",
                         vec!["https://example.com/waving.gif"],
+                        Some(asd_traits),
                     )
                 }
             })
@@ -90,10 +127,19 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Two-Step Actions".to_string(),
         (0..10)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    5, // Attention Span: 5 minutes
+                    vec![Communicability::Verbal],
+                    CommunicationLevel::High,
+                    MotorSkills::Medium,
+                );
+
                 if i % 3 == 0 {
                     generate_copy_action_question(
                         "Jump and Clap",
                         "https://example.com/jump_clap.gif",
+                        Some(asd_traits.clone()),
                     )
                 } else {
                     generate_recognize_action_question(
@@ -103,6 +149,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                             "https://example.com/jump.gif",
                             "https://example.com/clap.gif",
                         ],
+                        Some(asd_traits),
                     )
                 }
             })
@@ -117,10 +164,19 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Coordinated Actions".to_string(),
         (0..12)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    7, // Attention Span: 7 minutes
+                    vec![Communicability::Verbal, Communicability::NonVerbal],
+                    CommunicationLevel::High,
+                    MotorSkills::High,
+                );
+
                 if i % 3 == 0 {
                     generate_copy_action_question(
                         "Dance Move",
                         "https://example.com/dance_move.gif",
+                        Some(asd_traits.clone()),
                     )
                 } else {
                     generate_recognize_action_question(
@@ -130,6 +186,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                             "https://example.com/step_touch.gif",
                             "https://example.com/pivot_turn.gif",
                         ],
+                        Some(asd_traits),
                     )
                 }
             })
@@ -144,10 +201,19 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Complex Multi-Step Actions".to_string(),
         (0..14)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    10, // Attention Span: 10 minutes
+                    vec![Communicability::NonVerbal],
+                    CommunicationLevel::High,
+                    MotorSkills::High,
+                );
+
                 if i % 4 == 0 {
                     generate_copy_action_question(
                         "Yoga Pose Sequence",
                         "https://example.com/yoga_pose_sequence.gif",
+                        Some(asd_traits.clone()),
                     )
                 } else {
                     generate_recognize_action_question(
@@ -157,6 +223,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                             "https://example.com/handstand.gif",
                             "https://example.com/forward_roll.gif",
                         ],
+                        Some(asd_traits),
                     )
                 }
             })
@@ -171,10 +238,19 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Action Sequences".to_string(),
         (0..16)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    12, // Attention Span: 12 minutes
+                    vec![Communicability::Verbal, Communicability::NonVerbal],
+                    CommunicationLevel::High,
+                    MotorSkills::Medium,
+                );
+
                 if i % 4 == 0 {
                     generate_copy_action_question(
                         "Miming an action without props",
                         "https://example.com/miming.gif",
+                        Some(asd_traits.clone()),
                     )
                 } else {
                     generate_recognize_action_question(
@@ -184,6 +260,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                             "https://example.com/looking_around.gif",
                             "https://example.com/shrugging.gif",
                         ],
+                        Some(asd_traits),
                     )
                 }
             })
@@ -198,10 +275,19 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Mastering Motor Skills".to_string(),
         (0..18)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    15, // Attention Span: 15 minutes
+                    vec![Communicability::NonVerbal],
+                    CommunicationLevel::High,
+                    MotorSkills::VeryHigh,
+                );
+
                 if i % 5 == 0 {
                     generate_copy_action_question(
                         "Complex Gymnastics Routine",
                         "https://example.com/gymnastics_routine.gif",
+                        Some(asd_traits.clone()),
                     )
                 } else {
                     generate_recognize_action_question(
@@ -211,6 +297,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                             "https://example.com/wrong_sequence_1.gif",
                             "https://example.com/wrong_sequence_2.gif",
                         ],
+                        Some(asd_traits),
                     )
                 }
             })
@@ -225,10 +312,19 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
         "Advanced Action Interpretation".to_string(),
         (0..20)
             .map(|i| {
+                let asd_traits = ASDTraits::new(
+                    "".to_string(),
+                    20, // Attention Span: 20 minutes
+                    vec![Communicability::NonVerbal],
+                    CommunicationLevel::High,
+                    MotorSkills::VeryHigh,
+                );
+
                 if i % 5 == 0 {
                     generate_copy_action_question(
                         "Intricate Dance Choreography",
                         "https://example.com/advanced_dance.gif",
+                        Some(asd_traits.clone()),
                     )
                 } else {
                     generate_recognize_action_question(
@@ -238,6 +334,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                             "https://example.com/action_1.gif",
                             "https://example.com/action_2.gif",
                         ],
+                        Some(asd_traits),
                     )
                 }
             })

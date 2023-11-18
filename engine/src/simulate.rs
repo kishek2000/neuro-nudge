@@ -7,7 +7,7 @@ use std::io::Write;
 use std::vec;
 use types::content::{DifficultyLevel, Lesson, LessonPlan, LessonResult, QuestionAttempt};
 use types::engine::{Mastery, QTableAlgorithm, Strategy};
-use types::learner::Learner;
+use types::learner::{ASDTraitComparison, ASDTraits, Learner};
 
 use crate::{simulated_content_actions, simulated_content_shapes};
 
@@ -71,7 +71,7 @@ pub fn run_simulation_strategy_2() {
     );
 }
 
-// Strategy 3: Only Q Learning with decaying q values for reinforced learning.
+// Strategy 3: Q Learning with decaying q values for reinforced learning.
 pub fn run_simulation_strategy_3() {
     // Load lessons from the "Actions" module using functions from simulated_content.rs.
     let lessons = simulated_content_actions::generate_actions_lessons();
@@ -83,6 +83,35 @@ pub fn run_simulation_strategy_3() {
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
         File::create("strategy_3_simulation_results.json").expect("Failed to create file");
+
+    for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
+        // Initialise with first lesson in shapes.
+        let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
+        lesson_plan.add_lesson(lessons[0].clone());
+        learner.add_lesson_plan(lesson_plan);
+    }
+
+    // Run the simulation.
+    run_simulation(
+        learner_ids,
+        learners_with_q_tables,
+        output_file,
+        lessons.clone(),
+    );
+}
+
+// Strategy 4: Q Learning with decaying q values for reinforced learning, alongside ASD Trait sentivity
+pub fn run_simulation_strategy_4() {
+    // Load lessons from the "Actions" module using functions from simulated_content.rs.
+    let lessons = simulated_content_actions::generate_actions_lessons();
+
+    // Generate simulated learners with Q-tables.
+    let (learner_ids, mut learners_with_q_tables) =
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy4);
+
+    // Create a file to write simulation results (e.g., Q-tables).
+    let output_file =
+        File::create("strategy_4_simulation_results.json").expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in shapes.
@@ -126,7 +155,8 @@ fn run_simulation(
             let difficulty_level = lesson.clone().get_difficulty_level(); // Replace with your logic to get the difficulty level.
 
             // Simulate the learner attempting a lesson and get the lesson result.
-            let lesson_result = simulate_lesson_attempt(&lesson, q_table.clone());
+            let lesson_result =
+                simulate_lesson_attempt(&lesson, q_table.clone(), learner.get_asd_traits());
 
             // Update learner's Q-table based on lesson result.
             let mastery_level =
@@ -182,12 +212,20 @@ fn choose_lesson_based_on_q_table(
 fn simulate_lesson_attempt(
     current_lesson: &Lesson,
     current_learner_q_table: QTableAlgorithm,
+    learner_asd_traits: &ASDTraits,
 ) -> LessonResult {
     // Generate a simulated lesson result.
     let mut question_attempts = Vec::new();
     let num_attempts = current_lesson.get_questions().len(); // Number of questions in the lesson.
-                                                             // Calculate the time taken based on lesson difficulty (in seconds).
-    let time_taken = match current_lesson.clone().get_difficulty_level() {
+
+    // Time taken to complete the lesson //
+    let learner_attention_span = learner_asd_traits.get_attention_span();
+
+    // Calculate the time taken based on lesson difficulty (in seconds).
+    // However, it should also be influenced by the learner's attention span.
+    // For eexample, if the learner has a low attention span, they will take longer to complete
+    // the lesson.
+    let generated_time_taken_by_difficulty = match current_lesson.clone().get_difficulty_level() {
         DifficultyLevel::VeryEasy => {
             // Simulate quicker time for very easy lessons.
             (rand::thread_rng().gen::<f64>() * 5.0) + 5.0 // Random time between 5 to 10 seconds.
@@ -215,9 +253,30 @@ fn simulate_lesson_attempt(
         }
     } as i32;
 
+    // Attention span is given in minutes, so convert it to seconds for comparison
+    let attention_span_seconds = learner_attention_span * 60;
+
+    // Calculate a factor representing the extent to which the generated time exceeds the attention span
+    // This factor exponentially increases the time taken based on how much the generated time exceeds the attention span
+    let time_excess_factor = if generated_time_taken_by_difficulty > attention_span_seconds {
+        let excess_time = generated_time_taken_by_difficulty - attention_span_seconds;
+        // The exponential factor could be adjusted as needed for realism
+        let exponential_factor = 1.2;
+        // Apply the exponential increase
+        excess_time as f64 * exponential_factor
+    } else {
+        0.0 // No increase if within attention span
+    };
+
+    // Total time taken is the sum of generated time and the additional time due to attention span
+    let total_time_taken = generated_time_taken_by_difficulty as f64 + time_excess_factor;
+
+    // Ensure total time taken is at least the generated time
+    let total_time_taken = total_time_taken.max(generated_time_taken_by_difficulty as f64);
+
     for question in current_lesson.get_questions() {
         // Calculate the probability of answering correctly based on lesson difficulty.
-        let mut correctness_factor = match current_lesson.clone().get_difficulty_level() {
+        let mut correctness_factor: f32 = match current_lesson.clone().get_difficulty_level() {
             DifficultyLevel::VeryEasy => 0.95, // Easier lessons have a higher chance of correctness.
             DifficultyLevel::Easy => 0.85,
             DifficultyLevel::Medium => 0.7,
@@ -227,6 +286,20 @@ fn simulate_lesson_attempt(
             DifficultyLevel::Master => 0.45,
             DifficultyLevel::Grandmaster => 0.4,
         };
+
+        // ASD trait parameters - if the learner's ASD trait qualities are comparably lower
+        // than the question's ASD trait parameters, the probability of success should decrease
+        // accordingly, based on how much lower/different the learner's traits are.
+        // This is the final strategy, strategy 4
+        if current_learner_q_table.get_strategy() == &Strategy::Strategy4 {
+            let question_asd_traits = question.get_asd_traits_parameters();
+            if question_asd_traits.is_some() {
+                let alignment_score =
+                    learner_asd_traits.calculate_alignment(question_asd_traits.as_ref().unwrap());
+                let adjustment_factor = 1.0 - 0.5 * (1.0 - alignment_score);
+                correctness_factor *= adjustment_factor;
+            }
+        }
 
         // Within the context of what we are solving, as a learner becomes more accustomed
         // to a particular difficulty or makes progress, their chances of success should increase.
@@ -263,8 +336,8 @@ fn simulate_lesson_attempt(
         // Create a QuestionAttempt object.
         let question_attempt = QuestionAttempt::new(
             question.get_id().to_string(),
-            time_taken / num_attempts as i32, // Time taken for each question on average.
-            attempts,                         // Total attempts it took to get it right.
+            (total_time_taken / num_attempts as f64) as i32, // Time taken for each question on average.
+            attempts, // Total attempts it took to get it right.
             max(0, attempts - 1),
         );
 
@@ -274,8 +347,8 @@ fn simulate_lesson_attempt(
     // Create a LessonResult.
     let lesson_result = LessonResult::new(
         current_lesson.clone().get_difficulty_level(),
-        time_taken,          // Use the actual score or progress.
-        num_attempts as i32, // Number of questions attempted.
+        total_time_taken as i32, // Use the actual score or progress.
+        num_attempts as i32,     // Number of questions attempted.
         question_attempts,
     );
 

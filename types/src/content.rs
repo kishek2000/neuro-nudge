@@ -1,5 +1,7 @@
 use uuid::Uuid;
 
+use crate::learner::ASDTraits;
+
 /// Module
 /// A module is a unit of study. It has a name and a list of lessons.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -248,6 +250,10 @@ pub struct Question {
     options: Option<Vec<QuestionOption>>,
     answer: Answer,
     hints: Option<Vec<String>>,
+    /// ASD Traits Parameters - these are the parameters of relevant ASD traits
+    /// which a learner needs to have for optimal success. If they aren't at the
+    /// level of these parameters, their chances of correctness will be lowered.
+    asd_traits_parameters: Option<ASDTraits>,
 }
 
 impl Question {
@@ -256,6 +262,7 @@ impl Question {
         options: Option<Vec<QuestionOption>>,
         hints: Option<Vec<String>>,
         answer: Answer,
+        asd_traits_parameters: Option<ASDTraits>,
     ) -> Question {
         let id = Uuid::new_v4().to_string();
 
@@ -265,7 +272,12 @@ impl Question {
             answer,
             hints,
             options,
+            asd_traits_parameters,
         }
+    }
+
+    pub fn get_asd_traits_parameters(&self) -> &Option<ASDTraits> {
+        &self.asd_traits_parameters
     }
 
     pub fn add_hint(&mut self, hint: String) {

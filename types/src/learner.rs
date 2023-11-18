@@ -19,6 +19,7 @@ pub enum CommunicationLevel {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum MotorSkills {
+    VeryHigh,
     High,
     Medium,
     Low,
@@ -33,6 +34,81 @@ pub struct ASDTraits {
     communicability: Vec<Communicability>,
     communication_level: CommunicationLevel,
     motor_skills: MotorSkills,
+}
+
+pub trait ASDTraitComparison {
+    fn calculate_alignment(&self, other: &Self) -> f32;
+}
+
+impl ASDTraitComparison for ASDTraits {
+    fn calculate_alignment(&self, other: &ASDTraits) -> f32 {
+        let attention_span_alignment = (self.attention_span / other.attention_span) as f32;
+
+        let equal_communicability = self
+            .communicability
+            .iter()
+            .filter(|&c| other.communicability.contains(c))
+            .count() as f32;
+
+        let communicability_alignment = equal_communicability / other.communicability.len() as f32;
+        let communication_level_alignment = match self.communication_level {
+            CommunicationLevel::High => match other.communication_level {
+                CommunicationLevel::High => 1.0,
+                CommunicationLevel::Medium => 0.5,
+                CommunicationLevel::Low => 0.25,
+            },
+            CommunicationLevel::Medium => match other.communication_level {
+                CommunicationLevel::High => 1.0,
+                CommunicationLevel::Medium => 1.0,
+                CommunicationLevel::Low => 0.5,
+            },
+            CommunicationLevel::Low => match other.communication_level {
+                CommunicationLevel::High => 1.0,
+                CommunicationLevel::Medium => 1.0,
+                CommunicationLevel::Low => 1.0,
+            },
+        };
+        let motor_skills_alignment = match self.motor_skills {
+            MotorSkills::VeryHigh => match other.motor_skills {
+                MotorSkills::VeryHigh => 1.0,
+                MotorSkills::High => 0.5,
+                MotorSkills::Medium => 0.25,
+                MotorSkills::Low => 0.1225,
+            },
+            MotorSkills::High => match other.motor_skills {
+                MotorSkills::VeryHigh => 1.0,
+                MotorSkills::High => 1.0,
+                MotorSkills::Medium => 0.5,
+                MotorSkills::Low => 0.25,
+            },
+            MotorSkills::Medium => match other.motor_skills {
+                MotorSkills::VeryHigh => 1.0,
+                MotorSkills::High => 1.0,
+                MotorSkills::Medium => 1.0,
+                MotorSkills::Low => 0.5,
+            },
+            MotorSkills::Low => match other.motor_skills {
+                MotorSkills::VeryHigh => 1.0,
+                MotorSkills::High => 1.0,
+                MotorSkills::Medium => 1.0,
+                MotorSkills::Low => 1.0,
+            },
+        };
+
+        // Weights for each trait (these should sum up to 1)
+        let weight_attention_span = 0.4;
+        let weight_communicability = 0.2;
+        let weight_communication_level = 0.2;
+        let weight_motor_skills = 0.2;
+
+        // Calculate overall alignment score
+        let overall_alignment = attention_span_alignment * weight_attention_span
+            + communicability_alignment * weight_communicability
+            + communication_level_alignment * weight_communication_level
+            + motor_skills_alignment * weight_motor_skills;
+
+        overall_alignment
+    }
 }
 
 impl ASDTraits {
