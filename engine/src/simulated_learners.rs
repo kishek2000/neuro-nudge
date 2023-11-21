@@ -30,15 +30,15 @@ pub fn generate_simulated_learners_with_q_tables(
     let learner_1_traits = ASDTraits::new(
         "Learner 1".to_string(),
         5,
-        vec![Communicability::NonVerbal, Communicability::Verbal],
-        CommunicationLevel::High,
+        vec![Communicability::NonVerbal],
+        CommunicationLevel::Low,
         MotorSkills::Low,
     );
 
     let learner_2_traits = ASDTraits::new(
         "Learner 2".to_string(),
         6,
-        vec![Communicability::NonVerbal, Communicability::Verbal],
+        vec![Communicability::NonVerbal],
         CommunicationLevel::Medium,
         MotorSkills::Low,
     );
@@ -47,29 +47,29 @@ pub fn generate_simulated_learners_with_q_tables(
         "Learner 3".to_string(),
         7,
         vec![Communicability::NonVerbal],
-        CommunicationLevel::Low,
+        CommunicationLevel::Medium,
         MotorSkills::Medium,
     );
 
     let learner_4_traits = ASDTraits::new(
         "Learner 4".to_string(),
-        8,
-        vec![Communicability::NonVerbal, Communicability::Verbal],
-        CommunicationLevel::High,
-        MotorSkills::High,
-    );
-
-    let learner_5_traits = ASDTraits::new(
-        "Learner 5".to_string(),
         9,
         vec![Communicability::NonVerbal, Communicability::Verbal],
         CommunicationLevel::Medium,
         MotorSkills::High,
     );
 
+    let learner_5_traits = ASDTraits::new(
+        "Learner 5".to_string(),
+        12,
+        vec![Communicability::NonVerbal, Communicability::Verbal],
+        CommunicationLevel::High,
+        MotorSkills::High,
+    );
+
     let learner_6_traits = ASDTraits::new(
         "Learner 6".to_string(),
-        10,
+        15,
         vec![Communicability::NonVerbal, Communicability::Verbal],
         CommunicationLevel::High,
         MotorSkills::VeryHigh,

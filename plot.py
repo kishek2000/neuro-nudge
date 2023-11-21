@@ -4,24 +4,20 @@ import numpy as np
 
 while True:
     # Ask for strategy 1 or 2
-    try:
+    strategy = input(">> NeuroNudge Plots: Which strategy (1,2,3,4) would you like to plot?: ")
+    while strategy not in ["1", "2", "3", "4", "q"]:
         strategy = input(">> NeuroNudge Plots: Which strategy (1,2,3,4) would you like to plot?: ")
-        while strategy not in ["1", "2", "3", "4", "q"]:
-            strategy = input(">> NeuroNudge Plots: Which strategy (1,2,3,4) would you like to plot?: ")
-    except KeyboardInterrupt:
-        print("\n>> NeuroNudge Plots: Exiting...")
-        break
         
     if strategy == "q" or strategy == "Q":
         print(">> NeuroNudge Plots: Exiting...")
         break
 
     # Load your JSON data
-    with open(f'./engine/strategy_{strategy}_simulation_results.json', 'r') as file:
+    with open(f'./engine/strategy_{strategy}_simulation_shapes_results.json', 'r') as file:
         data = json.load(file)
 
     learner_ids = ["Learner 1", "Learner 2", "Learner 3", "Learner 4", "Learner 5", "Learner 6"]
-    difficulty_order = ["VeryEasy", "Easy", "Medium", "Hard", "VeryHard", "Master", "Expert", "Grandmaster"]
+    difficulty_order = ["VeryEasy", "Easy", "Medium", "Hard", "VeryHard", "Expert", "Master", "Grandmaster"]
 
     # Organize the data
     learner_progress = {learner: {difficulty: [] for difficulty in difficulty_order} for learner in learner_ids}
@@ -51,6 +47,7 @@ while True:
             ax1.plot(range(len(values)), values, label=difficulty)
             ax1.set_title(difficulty)
             ax1.label_outer()  # Only show outer labels
+            ax1.set_ylim(0.0, 1.0)  # Set y-axis limits
 
         # Plot attempted difficulty level
         attempted_levels = [difficulty_mapping[level] for level in difficulty_levels_attempted[learner_id]]
@@ -72,5 +69,5 @@ while True:
 
         # Adjust layout and show/save figure
         plt.tight_layout(rect=[0, 0.03, 1, 0.97])
-        plt.savefig(f'{learner_id}_progress_strategy_{strategy}.png')  # Save the figure as a file
+        plt.savefig(f'results/{learner_id}_progress_strategy_{strategy}_shapes.png')  # Save the figure as a file
         plt.show()

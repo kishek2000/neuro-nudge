@@ -103,7 +103,7 @@ pub fn run_simulation_strategy_3() {
 // Strategy 4: Q Learning with decaying q values for reinforced learning, alongside ASD Trait sentivity
 pub fn run_simulation_strategy_4() {
     // Load lessons from the "Actions" module using functions from simulated_content.rs.
-    let lessons = simulated_content_actions::generate_actions_lessons();
+    let lessons = simulated_content_shapes::generate_shapes_lessons();
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
@@ -111,7 +111,7 @@ pub fn run_simulation_strategy_4() {
 
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
-        File::create("strategy_4_simulation_results.json").expect("Failed to create file");
+        File::create("strategy_4_simulation_shapes_results.json").expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in shapes.
@@ -142,8 +142,6 @@ fn run_simulation(
 
     // Outer Iterations loop.
     for iteration in 0..num_iterations {
-        println!("Iteration: {}", iteration + 1);
-
         let mut values: Vec<Value> = vec![];
 
         // Main simulation loop.
@@ -180,6 +178,7 @@ fn run_simulation(
         });
 
         iteration_jsons.push(iteration_json_obj);
+        println!("Iteration {} completed...", iteration + 1);
     }
 
     let simulation_results = json!({ "iterations": iteration_jsons });
@@ -253,26 +252,30 @@ fn simulate_lesson_attempt(
         }
     } as i32;
 
-    // Attention span is given in minutes, so convert it to seconds for comparison
-    let attention_span_seconds = learner_attention_span * 60;
+    let mut total_time_taken = generated_time_taken_by_difficulty as f64;
 
-    // Calculate a factor representing the extent to which the generated time exceeds the attention span
-    // This factor exponentially increases the time taken based on how much the generated time exceeds the attention span
-    let time_excess_factor = if generated_time_taken_by_difficulty > attention_span_seconds {
-        let excess_time = generated_time_taken_by_difficulty - attention_span_seconds;
-        // The exponential factor could be adjusted as needed for realism
-        let exponential_factor = 1.2;
-        // Apply the exponential increase
-        excess_time as f64 * exponential_factor
-    } else {
-        0.0 // No increase if within attention span
-    };
+    if current_learner_q_table.get_strategy() == &Strategy::Strategy4 {
+        // Attention span is given in minutes, so convert it to seconds for comparison
+        let attention_span_seconds = learner_attention_span * 60;
 
-    // Total time taken is the sum of generated time and the additional time due to attention span
-    let total_time_taken = generated_time_taken_by_difficulty as f64 + time_excess_factor;
+        // Calculate a factor representing the extent to which the generated time exceeds the attention span
+        // This factor exponentially increases the time taken based on how much the generated time exceeds the attention span
+        let time_excess_factor = if generated_time_taken_by_difficulty > attention_span_seconds {
+            let excess_time = generated_time_taken_by_difficulty - attention_span_seconds;
+            // The exponential factor could be adjusted as needed for realism
+            let exponential_factor = 1.2;
+            // Apply the exponential increase
+            excess_time as f64 * exponential_factor
+        } else {
+            0.0 // No increase if within attention span
+        };
 
-    // Ensure total time taken is at least the generated time
-    let total_time_taken = total_time_taken.max(generated_time_taken_by_difficulty as f64);
+        // Total time taken is the sum of generated time and the additional time due to attention span
+        total_time_taken = generated_time_taken_by_difficulty as f64 + time_excess_factor;
+
+        // Ensure total time taken is at least the generated time
+        total_time_taken = total_time_taken.max(generated_time_taken_by_difficulty as f64);
+    }
 
     for question in current_lesson.get_questions() {
         // Calculate the probability of answering correctly based on lesson difficulty.
@@ -296,8 +299,26 @@ fn simulate_lesson_attempt(
             if question_asd_traits.is_some() {
                 let alignment_score =
                     learner_asd_traits.calculate_alignment(question_asd_traits.as_ref().unwrap());
-                let adjustment_factor = 1.0 - 0.5 * (1.0 - alignment_score);
-                correctness_factor *= adjustment_factor;
+
+                let consecutive_attempts = current_learner_q_table
+                    .get_consecutive_attempts_for_difficulty(
+                        &current_lesson.clone().get_difficulty_level(),
+                    )
+                    .clone();
+
+                // Although the alignment of traits should affect the probability of success,
+                // it should not be the only factor. The learner should still have a chance of
+                // success even if their traits are not aligned with the question's traits - especially
+                // if they have consecutively made a large number of attempts.
+                // Therefore, the alignment score is multiplied by a factor that is inversely proportional
+                // to the number of consecutive attempts.
+
+                // Using 0 as min and 4000 as max due to 5000 iterations being run and unlikely we exceed 4000
+                let normalised_consecutive_attempts =
+                    (consecutive_attempts - 0.0) as f32 / (5000 - 0) as f32;
+
+                correctness_factor = correctness_factor
+                    * (alignment_score + (normalised_consecutive_attempts * 20.0).min(1.0));
             }
         }
 
@@ -323,6 +344,10 @@ fn simulate_lesson_attempt(
 
         let mut attempts = 0;
         let mut is_correct = false;
+
+        // Ultimately, if there is a very low chance, we still don't want the correctness_factor to go any lower
+        // than 5%
+        correctness_factor = correctness_factor.max(0.05);
 
         while !is_correct {
             let rand_value = rand::thread_rng().gen::<f64>();

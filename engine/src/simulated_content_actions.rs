@@ -62,7 +62,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                         Some(ASDTraits::new(
                             "".to_string(),
                             1,
-                            vec![Communicability::Verbal],
+                            vec![Communicability::NonVerbal],
                             CommunicationLevel::Low,
                             MotorSkills::Low,
                         )),
@@ -75,7 +75,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                         Some(ASDTraits::new(
                             "".to_string(),
                             1,
-                            vec![Communicability::Verbal],
+                            vec![Communicability::NonVerbal],
                             CommunicationLevel::Low,
                             MotorSkills::Low,
                         )),
@@ -96,8 +96,8 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                 let asd_traits = ASDTraits::new(
                     "".to_string(),
                     3, // Attention Span: 3 minutes
-                    vec![Communicability::Verbal, Communicability::NonVerbal],
-                    CommunicationLevel::Medium,
+                    vec![Communicability::NonVerbal],
+                    CommunicationLevel::Low,
                     MotorSkills::Medium,
                 );
 
@@ -130,8 +130,8 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                 let asd_traits = ASDTraits::new(
                     "".to_string(),
                     5, // Attention Span: 5 minutes
-                    vec![Communicability::Verbal],
-                    CommunicationLevel::High,
+                    vec![Communicability::NonVerbal],
+                    CommunicationLevel::Medium,
                     MotorSkills::Medium,
                 );
 
@@ -167,9 +167,9 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                 let asd_traits = ASDTraits::new(
                     "".to_string(),
                     7, // Attention Span: 7 minutes
-                    vec![Communicability::Verbal, Communicability::NonVerbal],
+                    vec![Communicability::NonVerbal],
                     CommunicationLevel::High,
-                    MotorSkills::High,
+                    MotorSkills::Medium,
                 );
 
                 if i % 3 == 0 {
@@ -204,9 +204,9 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                 let asd_traits = ASDTraits::new(
                     "".to_string(),
                     10, // Attention Span: 10 minutes
-                    vec![Communicability::NonVerbal],
+                    vec![Communicability::NonVerbal, Communicability::Verbal],
                     CommunicationLevel::High,
-                    MotorSkills::High,
+                    MotorSkills::Medium,
                 );
 
                 if i % 4 == 0 {
@@ -243,7 +243,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                     12, // Attention Span: 12 minutes
                     vec![Communicability::Verbal, Communicability::NonVerbal],
                     CommunicationLevel::High,
-                    MotorSkills::Medium,
+                    MotorSkills::High,
                 );
 
                 if i % 4 == 0 {
@@ -278,7 +278,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                 let asd_traits = ASDTraits::new(
                     "".to_string(),
                     15, // Attention Span: 15 minutes
-                    vec![Communicability::NonVerbal],
+                    vec![Communicability::NonVerbal, Communicability::Verbal],
                     CommunicationLevel::High,
                     MotorSkills::VeryHigh,
                 );
@@ -315,7 +315,7 @@ pub fn generate_actions_lessons() -> Vec<Lesson> {
                 let asd_traits = ASDTraits::new(
                     "".to_string(),
                     20, // Attention Span: 20 minutes
-                    vec![Communicability::NonVerbal],
+                    vec![Communicability::NonVerbal, Communicability::Verbal],
                     CommunicationLevel::High,
                     MotorSkills::VeryHigh,
                 );

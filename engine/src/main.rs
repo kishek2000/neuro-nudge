@@ -79,7 +79,7 @@ fn main() {
             simulate::run_simulation_strategy_3();
             println!(">> Strategy 3: Simulation complete!");
         } else if strategy == 4 {
-            println!(">> You have selected Strategy 3: Simulate Q Learning with Mastery Thresholds, Decaying Q Values and ASD Trait Sensitivity");
+            println!(">> You have selected Strategy 4: Simulate Q Learning with Mastery Thresholds, Decaying Q Values and ASD Trait Sensitivity");
 
             println!(">> Strategy 4: Running simulation now...");
             simulate::run_simulation_strategy_4();

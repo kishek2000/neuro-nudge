@@ -53,6 +53,7 @@ pub struct QTableAlgorithm {
     /// level was attempted
     total_difficulty_non_attempts: HashMap<DifficultyLevel, f32>,
     has_attempted_difficulty: HashMap<DifficultyLevel, bool>,
+    consecutive_attempts: HashMap<DifficultyLevel, f32>,
 }
 
 /// Strategy of engine
@@ -71,6 +72,8 @@ impl QTableAlgorithm {
     pub fn new(q_table: Option<QTable>, epsilon: f32, strategy: Strategy) -> QTableAlgorithm {
         let mut decay_counters = HashMap::new();
         let mut total_difficulty_non_attempts = HashMap::new();
+        let mut consecutive_attempts = HashMap::new();
+
         let difficulties = [
             DifficultyLevel::VeryEasy,
             DifficultyLevel::Easy,
@@ -96,6 +99,7 @@ impl QTableAlgorithm {
 
             decay_counters.insert(difficulty.clone(), total_decays_expected);
             total_difficulty_non_attempts.insert(difficulty.clone(), 0.0);
+            consecutive_attempts.insert(difficulty.clone(), 0.0);
         }
 
         QTableAlgorithm {
@@ -108,11 +112,19 @@ impl QTableAlgorithm {
             decay_counters,
             total_difficulty_non_attempts,
             has_attempted_difficulty: HashMap::new(),
+            consecutive_attempts,
         }
     }
 
     pub fn get_strategy(&self) -> &Strategy {
         &self.strategy
+    }
+
+    pub fn get_consecutive_attempts_for_difficulty(
+        &self,
+        difficulty_level: &DifficultyLevel,
+    ) -> &f32 {
+        self.consecutive_attempts.get(difficulty_level).unwrap()
     }
 
     pub fn insert(&mut self, state: (Lesson, DifficultyLevel), value: f32) {
@@ -302,6 +314,19 @@ impl QTableAlgorithm {
 
         self.has_attempted_difficulty.insert(state.1.clone(), true);
 
+        // Update the consecutive attempts counter
+        self.consecutive_attempts = self
+            .consecutive_attempts
+            .iter()
+            .map(|(d, &v)| {
+                if d != &state.1 {
+                    (d.clone(), 0.0)
+                } else {
+                    (d.clone(), v + 1.0)
+                }
+            })
+            .collect();
+
         let lesson_difficulty = lesson_result.get_difficulty_level();
 
         let difficulty_weight = match lesson_difficulty {
@@ -439,7 +464,7 @@ impl QTableAlgorithm {
         let new_value =
             old_value + self.learning_rate * (reward + self.discount_factor * next_max - old_value);
 
-        self.q_table.insert(state.clone(), new_value);
+        self.q_table.insert(state.clone(), new_value.min(1.0)); // Ensure that the value is between 0 and 1
 
         self.update_difficulty_non_attempts(lesson_difficulty.clone());
         // If we're in strategy 3 (decaying q values) then apply decay
@@ -508,13 +533,13 @@ impl QTableAlgorithm {
 
                 let required_non_attempts_to_apply_decay = match d {
                     DifficultyLevel::VeryEasy => 2000.0,
-                    DifficultyLevel::Easy => 1600.0,
-                    DifficultyLevel::Medium => 1400.0,
-                    DifficultyLevel::Hard => 1200.0,
-                    DifficultyLevel::VeryHard => 1000.0,
-                    DifficultyLevel::Expert => 900.0,
-                    DifficultyLevel::Master => 750.0,
-                    DifficultyLevel::Grandmaster => 500.0,
+                    DifficultyLevel::Easy => 1750.0,
+                    DifficultyLevel::Medium => 1600.0,
+                    DifficultyLevel::Hard => 1400.0,
+                    DifficultyLevel::VeryHard => 1200.0,
+                    DifficultyLevel::Expert => 1050.0,
+                    DifficultyLevel::Master => 900.0,
+                    DifficultyLevel::Grandmaster => 750.0,
                 };
 
                 let decay_counter = self.decay_counters.get(d).unwrap_or(&0.0);

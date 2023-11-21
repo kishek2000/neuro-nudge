@@ -42,7 +42,8 @@ pub trait ASDTraitComparison {
 
 impl ASDTraitComparison for ASDTraits {
     fn calculate_alignment(&self, other: &ASDTraits) -> f32 {
-        let attention_span_alignment = (self.attention_span / other.attention_span) as f32;
+        let attention_span_alignment =
+            ((self.attention_span / other.attention_span) as f32).min(1.0) as f32;
 
         let equal_communicability = self
             .communicability
@@ -54,40 +55,47 @@ impl ASDTraitComparison for ASDTraits {
         let communication_level_alignment = match self.communication_level {
             CommunicationLevel::High => match other.communication_level {
                 CommunicationLevel::High => 1.0,
-                CommunicationLevel::Medium => 0.5,
-                CommunicationLevel::Low => 0.25,
-            },
-            CommunicationLevel::Medium => match other.communication_level {
-                CommunicationLevel::High => 1.0,
-                CommunicationLevel::Medium => 1.0,
-                CommunicationLevel::Low => 0.5,
-            },
-            CommunicationLevel::Low => match other.communication_level {
-                CommunicationLevel::High => 1.0,
                 CommunicationLevel::Medium => 1.0,
                 CommunicationLevel::Low => 1.0,
             },
-        };
-        let motor_skills_alignment = match self.motor_skills {
-            MotorSkills::VeryHigh => match other.motor_skills {
-                MotorSkills::VeryHigh => 1.0,
-                MotorSkills::High => 0.5,
-                MotorSkills::Medium => 0.25,
-                MotorSkills::Low => 0.1225,
+            CommunicationLevel::Medium => match other.communication_level {
+                CommunicationLevel::High => 0.5,
+                CommunicationLevel::Medium => 1.0,
+                CommunicationLevel::Low => 1.0,
             },
-            MotorSkills::High => match other.motor_skills {
-                MotorSkills::VeryHigh => 1.0,
-                MotorSkills::High => 1.0,
+            CommunicationLevel::Low => match other.communication_level {
+                CommunicationLevel::High => 0.0,
+                CommunicationLevel::Medium => 0.5,
+                CommunicationLevel::Low => 1.0,
+            },
+        };
+
+        // Even if someone has the same communicability, the level of communication
+        // is still important. For example, if someone is verbal, but has a low
+        // communication level, they should not have a high alignment score if the question
+        // does ask for verbal, but requires a high communication level = high verbal communication level.
+        let communicability_alignment = communicability_alignment * communication_level_alignment;
+
+        let motor_skills_alignment = match self.motor_skills {
+            MotorSkills::Low => match other.motor_skills {
+                MotorSkills::VeryHigh => 0.0,
+                MotorSkills::High => 0.25,
                 MotorSkills::Medium => 0.5,
-                MotorSkills::Low => 0.25,
+                MotorSkills::Low => 1.0,
             },
             MotorSkills::Medium => match other.motor_skills {
-                MotorSkills::VeryHigh => 1.0,
+                MotorSkills::VeryHigh => 0.25,
+                MotorSkills::High => 0.5,
+                MotorSkills::Medium => 1.0,
+                MotorSkills::Low => 1.0,
+            },
+            MotorSkills::High => match other.motor_skills {
+                MotorSkills::VeryHigh => 0.5,
                 MotorSkills::High => 1.0,
                 MotorSkills::Medium => 1.0,
-                MotorSkills::Low => 0.5,
+                MotorSkills::Low => 1.0,
             },
-            MotorSkills::Low => match other.motor_skills {
+            MotorSkills::VeryHigh => match other.motor_skills {
                 MotorSkills::VeryHigh => 1.0,
                 MotorSkills::High => 1.0,
                 MotorSkills::Medium => 1.0,
