@@ -1,6 +1,4 @@
-//! The engine will be based on Q-Learning. The Q-Learning algorithm
-//! is a model-free, reinforcement learning algorithm. It is a
-//! technique to learn optimal values of an action given a state.
+//! This defines the Q Learning algorithm.
 //!
 //! In this context the following is the plan:
 //! - a q table map is associated to each student for their own progression
@@ -56,16 +54,13 @@ pub struct QTableAlgorithm {
     consecutive_attempts: HashMap<DifficultyLevel, f32>,
 }
 
-/// Strategy of engine
-/// 1: Q learning without mastery
-/// 2: Q learning with mastery
-/// 3: (todo - form a 3rd strategy)
+/// Strategy used by the engine
 #[derive(Debug, Clone, PartialEq)]
 pub enum Strategy {
-    Strategy1,
-    Strategy2,
-    Strategy3,
-    Strategy4,
+    BaseQLearning,
+    MasteryThresholds,
+    DecayingQValues,
+    TraitSensitivity,
 }
 
 impl QTableAlgorithm {
@@ -151,8 +146,8 @@ impl QTableAlgorithm {
             .max_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
-        let threshold = 0.5; // Threshold for weakness, can be adjusted
-                             // current_value <= threshold && *decay_counter > 0.0
+        // Threshold for weakness, can be adjusted
+        let threshold = 0.5;
         current_value <= threshold
     }
 
@@ -190,7 +185,9 @@ impl QTableAlgorithm {
     ) -> (Lesson, DifficultyLevel) {
         let rand_value = rand::thread_rng().gen::<f32>();
         if rand_value < self.epsilon {
-            if self.strategy == Strategy::Strategy3 || self.strategy == Strategy::Strategy4 {
+            if self.strategy == Strategy::DecayingQValues
+                || self.strategy == Strategy::TraitSensitivity
+            {
                 // Exploration: Modified to prioritize weaker levels
                 let weaker_level = self.find_weaker_level();
                 if let Some(level) = weaker_level {
@@ -242,7 +239,8 @@ impl QTableAlgorithm {
         // decayed levels - i.e. potentially weak levels, are prioritized
         let current_difficulty = state.1.clone();
         let is_current_weak = self.is_weak_level(&current_difficulty);
-        if (self.strategy == Strategy::Strategy3 || self.strategy == Strategy::Strategy4)
+        if (self.strategy == Strategy::DecayingQValues
+            || self.strategy == Strategy::TraitSensitivity)
             && is_current_weak
         {
             // Balance between reinforcing a weak level and moving to a higher difficulty
@@ -254,7 +252,7 @@ impl QTableAlgorithm {
                 .clone();
         }
 
-        if self.strategy == Strategy::Strategy1 {
+        if self.strategy == Strategy::BaseQLearning {
             // No mastery level considered, simply choose next difficulty
             let next_index = current_index + 1;
             let next_index = next_index.min(difficulties.len() - 1); // Ensure index is within bounds
@@ -430,9 +428,9 @@ impl QTableAlgorithm {
 
         reward = reward.max(-1.0).min(1.0);
 
-        // Adjust the reward based on mastery thresholds, if strategy 2
+        // Adjust the reward based on mastery thresholds, if strategy isn't basic q learning
         let mut mastery_level: Option<Mastery> = None;
-        if self.strategy != Strategy::Strategy1 {
+        if self.strategy != Strategy::BaseQLearning {
             mastery_level = if reward >= FULL_MASTERY_THRESHOLD {
                 Some(Mastery::Full)
             } else if reward >= COMPETENT_MASTERY_THRESHOLD {
@@ -467,8 +465,10 @@ impl QTableAlgorithm {
         self.q_table.insert(state.clone(), new_value.min(1.0)); // Ensure that the value is between 0 and 1
 
         self.update_difficulty_non_attempts(lesson_difficulty.clone());
-        // If we're in strategy 3 (decaying q values) then apply decay
-        if self.strategy == Strategy::Strategy3 || self.strategy == Strategy::Strategy4 {
+
+        // If we're in strategy 3 (decaying q values) or 4 (trait sensitivty) then apply decay
+        if self.strategy == Strategy::DecayingQValues || self.strategy == Strategy::TraitSensitivity
+        {
             self.apply_decay();
         }
 

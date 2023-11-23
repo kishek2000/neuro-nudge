@@ -1,3 +1,5 @@
+//! Simulated content for the "Actions" module.
+
 use types::{
     content::{
         Answer, ContentModule, DifficultyLevel, Lesson, Prompt, PromptType, Question,

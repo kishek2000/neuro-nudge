@@ -6,15 +6,13 @@
 //! for young learners who have ASD and accordingly advise lessons that
 //! they can do to make more progress. It aims to use reinforcement
 //! learning and be sensitive to the different factors that exist for
-//! a learner with ASD, such as their duration in answering a question,
-//! the number of incorrect attempts, and so forth.
+//! a learner with ASD.
 //!
 //! This project simply explores the development of the algorithm and
 //! tests it with data that simulates some potential young learners
 //! (using GPT). It does NOT provide an application experience for the
 //! learning.
 //!
-//! The engine will be based on Reinforcement Learning.
 //! Note that the state and types for stuff like learner, lesson etc are
 //! defined in the `types` module.
 //!

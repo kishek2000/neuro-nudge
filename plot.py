@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 while True:
-    # Ask for strategy 1 or 2
+    # Ask for which strategy to plot
     strategy = input(">> NeuroNudge Plots: Which strategy (1,2,3,4) would you like to plot?: ")
     while strategy not in ["1", "2", "3", "4", "q"]:
         strategy = input(">> NeuroNudge Plots: Which strategy (1,2,3,4) would you like to plot?: ")
@@ -12,8 +12,8 @@ while True:
         print(">> NeuroNudge Plots: Exiting...")
         break
 
-    # Load your JSON data
-    with open(f'./engine/strategy_{strategy}_simulation_shapes_results.json', 'r') as file:
+    # Load JSON data
+    with open(f'./engine/strategy_{strategy}_simulation_results.json', 'r') as file:
         data = json.load(file)
 
     learner_ids = ["Learner 1", "Learner 2", "Learner 3", "Learner 4", "Learner 5", "Learner 6"]
@@ -42,7 +42,7 @@ while True:
         # Loop through each difficulty and plot Q-values
         for idx, difficulty in enumerate(difficulty_order):
             ax1 = axs[idx, 0]
-            # Apply smoothing
+            # Apply some smoothing (because the Q-values can be noisy)
             values = np.convolve(learner_progress[learner_id][difficulty], np.ones(10)/10, mode='valid')
             ax1.plot(range(len(values)), values, label=difficulty)
             ax1.set_title(difficulty)
@@ -69,5 +69,5 @@ while True:
 
         # Adjust layout and show/save figure
         plt.tight_layout(rect=[0, 0.03, 1, 0.97])
-        plt.savefig(f'results/{learner_id}_progress_strategy_{strategy}_shapes.png')  # Save the figure as a file
+        plt.savefig(f'results/{learner_id}_progress_strategy_{strategy}.png')  # Save the figure as a file
         plt.show()

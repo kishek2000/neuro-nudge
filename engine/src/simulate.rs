@@ -20,7 +20,7 @@ pub fn run_simulation_strategy_1() {
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
-        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy1);
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::BaseQLearning);
 
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
@@ -49,7 +49,7 @@ pub fn run_simulation_strategy_2() {
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
-        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy2);
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::MasteryThresholds);
 
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
@@ -78,14 +78,14 @@ pub fn run_simulation_strategy_3() {
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
-        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy3);
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::DecayingQValues);
 
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
         File::create("strategy_3_simulation_results.json").expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
-        // Initialise with first lesson in shapes.
+        // Initialise with first lesson in actions.
         let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
         lesson_plan.add_lesson(lessons[0].clone());
         learner.add_lesson_plan(lesson_plan);
@@ -107,14 +107,14 @@ pub fn run_simulation_strategy_4() {
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
-        generate_simulated_learners_with_q_tables(&lessons, Strategy::Strategy4);
+        generate_simulated_learners_with_q_tables(&lessons, Strategy::TraitSensitivity);
 
     // Create a file to write simulation results (e.g., Q-tables).
     let output_file =
         File::create("strategy_4_simulation_shapes_results.json").expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
-        // Initialise with first lesson in shapes.
+        // Initialise with first lesson in actions.
         let mut lesson_plan = LessonPlan::new("Lesson 1".to_string());
         lesson_plan.add_lesson(lessons[0].clone());
         learner.add_lesson_plan(lesson_plan);
@@ -136,7 +136,7 @@ fn run_simulation(
     lessons: Vec<Lesson>,
 ) {
     // Define the number of iterations for the simulation.
-    let num_iterations = 5000; // You can adjust this as needed.
+    let num_iterations = 5000;
 
     let mut iteration_jsons = vec![];
 
@@ -150,7 +150,7 @@ fn run_simulation(
 
             let lesson = learner.get_current_lesson();
             // Get the lesson and difficulty level for the learner.
-            let difficulty_level = lesson.clone().get_difficulty_level(); // Replace with your logic to get the difficulty level.
+            let difficulty_level = lesson.clone().get_difficulty_level();
 
             // Simulate the learner attempting a lesson and get the lesson result.
             let lesson_result =
@@ -165,7 +165,7 @@ fn run_simulation(
                 write_q_table_to_file(learner_id, q_table, &lessons, difficulty_level.clone());
             values.push(value);
 
-            // Choose the next lesson based on Q-table (you need to implement this logic).
+            // Choose the next lesson based on Q-table.
             let next_lesson = choose_lesson_based_on_q_table(q_table, &lesson, mastery_level);
 
             // Set the learner's next lesson.
@@ -215,14 +215,14 @@ fn simulate_lesson_attempt(
 ) -> LessonResult {
     // Generate a simulated lesson result.
     let mut question_attempts = Vec::new();
-    let num_attempts = current_lesson.get_questions().len(); // Number of questions in the lesson.
+    let total_questions = current_lesson.get_questions().len();
 
     // Time taken to complete the lesson //
     let learner_attention_span = learner_asd_traits.get_attention_span();
 
     // Calculate the time taken based on lesson difficulty (in seconds).
     // However, it should also be influenced by the learner's attention span.
-    // For eexample, if the learner has a low attention span, they will take longer to complete
+    // For example, if the learner has a low attention span, they will take longer to complete
     // the lesson.
     let generated_time_taken_by_difficulty = match current_lesson.clone().get_difficulty_level() {
         DifficultyLevel::VeryEasy => {
@@ -254,7 +254,7 @@ fn simulate_lesson_attempt(
 
     let mut total_time_taken = generated_time_taken_by_difficulty as f64;
 
-    if current_learner_q_table.get_strategy() == &Strategy::Strategy4 {
+    if current_learner_q_table.get_strategy() == &Strategy::TraitSensitivity {
         // Attention span is given in minutes, so convert it to seconds for comparison
         let attention_span_seconds = learner_attention_span * 60;
 
@@ -294,7 +294,7 @@ fn simulate_lesson_attempt(
         // than the question's ASD trait parameters, the probability of success should decrease
         // accordingly, based on how much lower/different the learner's traits are.
         // This is the final strategy, strategy 4
-        if current_learner_q_table.get_strategy() == &Strategy::Strategy4 {
+        if current_learner_q_table.get_strategy() == &Strategy::TraitSensitivity {
             let question_asd_traits = question.get_asd_traits_parameters();
             if question_asd_traits.is_some() {
                 let alignment_score =
@@ -345,8 +345,8 @@ fn simulate_lesson_attempt(
         let mut attempts = 0;
         let mut is_correct = false;
 
-        // Ultimately, if there is a very low chance, we still don't want the correctness_factor to go any lower
-        // than 5%
+        // Ultimately, if there is a very low chance, we still don't want the
+        // correctness_factor to go any lower than 5%
         correctness_factor = correctness_factor.max(0.05);
 
         while !is_correct {
@@ -361,7 +361,7 @@ fn simulate_lesson_attempt(
         // Create a QuestionAttempt object.
         let question_attempt = QuestionAttempt::new(
             question.get_id().to_string(),
-            (total_time_taken / num_attempts as f64) as i32, // Time taken for each question on average.
+            (total_time_taken / total_questions as f64) as i32, // Time taken for each question on average.
             attempts, // Total attempts it took to get it right.
             max(0, attempts - 1),
         );
@@ -373,7 +373,7 @@ fn simulate_lesson_attempt(
     let lesson_result = LessonResult::new(
         current_lesson.clone().get_difficulty_level(),
         total_time_taken as i32, // Use the actual score or progress.
-        num_attempts as i32,     // Number of questions attempted.
+        total_questions as i32,  // Number of questions attempted.
         question_attempts,
     );
 

@@ -2,8 +2,8 @@ use uuid::Uuid;
 
 use crate::learner::ASDTraits;
 
-/// Module
-/// A module is a unit of study. It has a name and a list of lessons.
+/// ContentModule
+/// A ContentmModule is a unit of study. It has a name and a list of lessons.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ContentModule {
     id: String,

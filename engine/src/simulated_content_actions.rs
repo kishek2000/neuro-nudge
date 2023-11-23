@@ -1,3 +1,9 @@
+//! Simulated content for the "Actions" module.
+//!
+//! Note that the URLs used for many questions are just a placeholder. The actual URLs would
+//! be provided in a real environment, this is just for the simulated testing environment.
+//!
+
 use types::{
     content::{
         Answer, ContentModule, DifficultyLevel, Lesson, Prompt, PromptType, Question,

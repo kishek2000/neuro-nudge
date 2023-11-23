@@ -1,3 +1,5 @@
+//! Simulated learners for the simulation testing environment
+
 use std::collections::HashMap;
 use types::content::Lesson;
 use types::engine::{QTableAlgorithm, Strategy};
@@ -7,7 +9,7 @@ fn generate_simulated_learner(
     name: &str,
     age: u8,
     asd_traits: ASDTraits,
-    q_table: &mut QTableAlgorithm, // Use a mutable reference
+    q_table: &mut QTableAlgorithm,
 ) -> Learner {
     let q_table_id = q_table.get_id();
     let learner = Learner::new(
@@ -118,7 +120,6 @@ pub fn generate_simulated_learners_with_q_tables(
             "Learner 5" => &q_table_5,
             "Learner 6" => &q_table_6,
             _ => {
-                // Handle unknown learner
                 panic!("Unknown learner ID: {}", learner_id);
             }
         };
