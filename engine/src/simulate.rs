@@ -115,7 +115,7 @@ pub fn run_simulation_strategy_3(iterations: Option<u32>) {
 // Strategy 4: Q Learning with decaying q values for reinforced learning, alongside ASD Trait sentivity
 pub fn run_simulation_strategy_4(iterations: Option<u32>) {
     // Load lessons from the "Actions" module using functions from simulated_content.rs.
-    let lessons = simulated_content_shapes::generate_shapes_lessons();
+    let lessons = simulated_content_actions::generate_actions_lessons();
 
     // Generate simulated learners with Q-tables.
     let (learner_ids, mut learners_with_q_tables) =
