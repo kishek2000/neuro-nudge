@@ -4,3 +4,4 @@ NeuroNudge is an unsupervised learning algorithm for young kids with ASD. The go
 
 This project simply explores the development of the algorithm and tests it with data that simulates some potential young learners (using GPT). It does NOT provide an application experience for the learning.
 
+To understand more about the algorithm and approach see the report pdf.
