@@ -170,6 +170,13 @@ impl Lesson {
         }
     }
 
+    pub fn get_asd_traits_parameters(&self) -> ASDTraits {
+        self.questions[0]
+            .get_asd_traits_parameters()
+            .clone()
+            .unwrap()
+    }
+
     pub fn add_question(&mut self, question: Question) {
         self.questions.push(question);
     }

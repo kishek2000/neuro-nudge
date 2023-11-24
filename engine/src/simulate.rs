@@ -14,7 +14,7 @@ use crate::{simulated_content_actions, simulated_content_shapes};
 use rand::Rng;
 
 // Strategy 1: Only Q Learning with no mastery thresholds.
-pub fn run_simulation_strategy_1() {
+pub fn run_simulation_strategy_1(iterations: Option<u32>) {
     // Load lessons for the "Shapes" module using functions from simulated_content.rs.
     let lessons = simulated_content_shapes::generate_shapes_lessons();
 
@@ -23,8 +23,11 @@ pub fn run_simulation_strategy_1() {
         generate_simulated_learners_with_q_tables(&lessons, Strategy::BaseQLearning);
 
     // Create a file to write simulation results (e.g., Q-tables).
-    let output_file =
-        File::create("strategy_1_simulation_results.json").expect("Failed to create file");
+    let output_file = File::create(format!(
+        "strategy_1_simulation_results_i{}.json",
+        iterations.unwrap_or(5000)
+    ))
+    .expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in shapes.
@@ -39,11 +42,12 @@ pub fn run_simulation_strategy_1() {
         learners_with_q_tables,
         output_file,
         lessons.clone(),
+        iterations,
     );
 }
 
 // Strategy 2: Only Q Learning with mastery thresholds.
-pub fn run_simulation_strategy_2() {
+pub fn run_simulation_strategy_2(iterations: Option<u32>) {
     // Load lessons from the "Shapes" module using functions from simulated_content.rs.
     let lessons = simulated_content_shapes::generate_shapes_lessons();
 
@@ -52,8 +56,11 @@ pub fn run_simulation_strategy_2() {
         generate_simulated_learners_with_q_tables(&lessons, Strategy::MasteryThresholds);
 
     // Create a file to write simulation results (e.g., Q-tables).
-    let output_file =
-        File::create("strategy_2_simulation_results.json").expect("Failed to create file");
+    let output_file = File::create(format!(
+        "strategy_2_simulation_results_i{}.json",
+        iterations.unwrap_or(5000)
+    ))
+    .expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in shapes.
@@ -68,11 +75,12 @@ pub fn run_simulation_strategy_2() {
         learners_with_q_tables,
         output_file,
         lessons.clone(),
+        iterations,
     );
 }
 
 // Strategy 3: Q Learning with decaying q values for reinforced learning.
-pub fn run_simulation_strategy_3() {
+pub fn run_simulation_strategy_3(iterations: Option<u32>) {
     // Load lessons from the "Actions" module using functions from simulated_content.rs.
     let lessons = simulated_content_actions::generate_actions_lessons();
 
@@ -81,8 +89,11 @@ pub fn run_simulation_strategy_3() {
         generate_simulated_learners_with_q_tables(&lessons, Strategy::DecayingQValues);
 
     // Create a file to write simulation results (e.g., Q-tables).
-    let output_file =
-        File::create("strategy_3_simulation_results.json").expect("Failed to create file");
+    let output_file = File::create(format!(
+        "strategy_3_simulation_results_i{}.json",
+        iterations.unwrap_or(5000)
+    ))
+    .expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in actions.
@@ -97,11 +108,12 @@ pub fn run_simulation_strategy_3() {
         learners_with_q_tables,
         output_file,
         lessons.clone(),
+        iterations,
     );
 }
 
 // Strategy 4: Q Learning with decaying q values for reinforced learning, alongside ASD Trait sentivity
-pub fn run_simulation_strategy_4() {
+pub fn run_simulation_strategy_4(iterations: Option<u32>) {
     // Load lessons from the "Actions" module using functions from simulated_content.rs.
     let lessons = simulated_content_shapes::generate_shapes_lessons();
 
@@ -110,8 +122,11 @@ pub fn run_simulation_strategy_4() {
         generate_simulated_learners_with_q_tables(&lessons, Strategy::TraitSensitivity);
 
     // Create a file to write simulation results (e.g., Q-tables).
-    let output_file =
-        File::create("strategy_4_simulation_shapes_results.json").expect("Failed to create file");
+    let output_file = File::create(format!(
+        "strategy_4_simulation_results_i{}.json",
+        iterations.unwrap_or(5000)
+    ))
+    .expect("Failed to create file");
 
     for (_, (learner, _)) in learners_with_q_tables.iter_mut() {
         // Initialise with first lesson in actions.
@@ -126,6 +141,7 @@ pub fn run_simulation_strategy_4() {
         learners_with_q_tables,
         output_file,
         lessons.clone(),
+        iterations,
     );
 }
 
@@ -134,9 +150,10 @@ fn run_simulation(
     mut learners_with_q_tables: HashMap<String, (Learner, QTableAlgorithm)>,
     mut output_file: File,
     lessons: Vec<Lesson>,
+    iterations: Option<u32>,
 ) {
     // Define the number of iterations for the simulation.
-    let num_iterations = 5000;
+    let num_iterations = iterations.unwrap_or(5000);
 
     let mut iteration_jsons = vec![];
 
@@ -178,7 +195,7 @@ fn run_simulation(
         });
 
         iteration_jsons.push(iteration_json_obj);
-        println!("Iteration {} completed...", iteration + 1);
+        // println!("Iteration {} completed...", iteration + 1);
     }
 
     let simulation_results = json!({ "iterations": iteration_jsons });
@@ -277,78 +294,73 @@ fn simulate_lesson_attempt(
         total_time_taken = total_time_taken.max(generated_time_taken_by_difficulty as f64);
     }
 
+    // Each lesson has identical ASD trait parameters set
+    let lesson_asd_traits = current_lesson.get_asd_traits_parameters();
+    // Calculate the probability of answering correctly based on lesson difficulty.
+    let mut correctness_factor: f32 = match current_lesson.clone().get_difficulty_level() {
+        DifficultyLevel::VeryEasy => 0.95, // Easier lessons have a higher chance of correctness.
+        DifficultyLevel::Easy => 0.85,
+        DifficultyLevel::Medium => 0.7,
+        DifficultyLevel::Hard => 0.6,
+        DifficultyLevel::VeryHard => 0.55,
+        DifficultyLevel::Expert => 0.5,
+        DifficultyLevel::Master => 0.45,
+        DifficultyLevel::Grandmaster => 0.4,
+    };
+    // ASD trait parameters - if the learner's ASD trait qualities are comparably lower
+    // than the question's ASD trait parameters, the probability of success should decrease
+    // accordingly, based on how much lower/different the learner's traits are.
+    // This is the final strategy, strategy 4
+    if current_learner_q_table.get_strategy() == &Strategy::TraitSensitivity {
+        let alignment_score = learner_asd_traits.calculate_alignment(&lesson_asd_traits);
+
+        let consecutive_attempts = current_learner_q_table
+            .get_consecutive_attempts_for_difficulty(&current_lesson.clone().get_difficulty_level())
+            .clone();
+
+        // Although the alignment of traits should affect the probability of success,
+        // it should not be the only factor. The learner should still have a chance of
+        // success even if their traits are not aligned with the question's traits - especially
+        // if they have consecutively made a large number of attempts.
+        // Therefore, the alignment score is multiplied by a factor that is inversely proportional
+        // to the number of consecutive attempts.
+
+        // Using 0 as min and 4000 as max due to 5000 iterations being run and unlikely we exceed 4000
+        let normalised_consecutive_attempts =
+            (consecutive_attempts - 0.0) as f32 / (5000 - 0) as f32;
+
+        correctness_factor = correctness_factor
+            * (alignment_score + (normalised_consecutive_attempts * 20.0).min(1.0));
+    }
+
+    // Within the context of what we are solving, as a learner becomes more accustomed
+    // to a particular difficulty or makes progress, their chances of success should increase.
+    // While this doesn't mean mastery, it means it should at least increase, meaning the
+    // correctness_factor variable above in turn should increase, **depending on if the learner
+    // has made progress in that difficulty level**. We should still not make it too easy as
+    // reinforcement is very important for ASD learners even on something they have learnt well
+    // already, but we should make it easier than it was before.
+    let current_q_value = current_learner_q_table
+        .get(&(
+            current_lesson.clone(),
+            current_lesson.clone().get_difficulty_level(),
+        ))
+        .unwrap_or(&0.0);
+
+    // If the learner has made progress in the current difficulty level, decrease the difficulty factor
+    // by a factor that is relative to the progress.
+    if current_q_value > &0.0 {
+        correctness_factor += current_q_value * 0.1;
+    }
+
+    let mut attempts = 0;
+    let mut is_correct = false;
+
+    // Ultimately, if there is a very low chance, we still don't want the
+    // correctness_factor to go any lower than 5%
+    correctness_factor = correctness_factor.max(0.05);
+
     for question in current_lesson.get_questions() {
-        // Calculate the probability of answering correctly based on lesson difficulty.
-        let mut correctness_factor: f32 = match current_lesson.clone().get_difficulty_level() {
-            DifficultyLevel::VeryEasy => 0.95, // Easier lessons have a higher chance of correctness.
-            DifficultyLevel::Easy => 0.85,
-            DifficultyLevel::Medium => 0.7,
-            DifficultyLevel::Hard => 0.6,
-            DifficultyLevel::VeryHard => 0.55,
-            DifficultyLevel::Expert => 0.5,
-            DifficultyLevel::Master => 0.45,
-            DifficultyLevel::Grandmaster => 0.4,
-        };
-
-        // ASD trait parameters - if the learner's ASD trait qualities are comparably lower
-        // than the question's ASD trait parameters, the probability of success should decrease
-        // accordingly, based on how much lower/different the learner's traits are.
-        // This is the final strategy, strategy 4
-        if current_learner_q_table.get_strategy() == &Strategy::TraitSensitivity {
-            let question_asd_traits = question.get_asd_traits_parameters();
-            if question_asd_traits.is_some() {
-                let alignment_score =
-                    learner_asd_traits.calculate_alignment(question_asd_traits.as_ref().unwrap());
-
-                let consecutive_attempts = current_learner_q_table
-                    .get_consecutive_attempts_for_difficulty(
-                        &current_lesson.clone().get_difficulty_level(),
-                    )
-                    .clone();
-
-                // Although the alignment of traits should affect the probability of success,
-                // it should not be the only factor. The learner should still have a chance of
-                // success even if their traits are not aligned with the question's traits - especially
-                // if they have consecutively made a large number of attempts.
-                // Therefore, the alignment score is multiplied by a factor that is inversely proportional
-                // to the number of consecutive attempts.
-
-                // Using 0 as min and 4000 as max due to 5000 iterations being run and unlikely we exceed 4000
-                let normalised_consecutive_attempts =
-                    (consecutive_attempts - 0.0) as f32 / (5000 - 0) as f32;
-
-                correctness_factor = correctness_factor
-                    * (alignment_score + (normalised_consecutive_attempts * 20.0).min(1.0));
-            }
-        }
-
-        // Within the context of what we are solving, as a learner becomes more accustomed
-        // to a particular difficulty or makes progress, their chances of success should increase.
-        // While this doesn't mean mastery, it means it should at least increase, meaning the
-        // correctness_factor variable above in turn should increase, **depending on if the learner
-        // has made progress in that difficulty level**. We should still not make it too easy as
-        // reinforcement is very important for ASD learners even on something they have learnt well
-        // already, but we should make it easier than it was before.
-        let current_q_value = current_learner_q_table
-            .get(&(
-                current_lesson.clone(),
-                current_lesson.clone().get_difficulty_level(),
-            ))
-            .unwrap_or(&0.0);
-
-        // If the learner has made progress in the current difficulty level, decrease the difficulty factor
-        // by a factor that is relative to the progress.
-        if current_q_value > &0.0 {
-            correctness_factor += current_q_value * 0.1;
-        }
-
-        let mut attempts = 0;
-        let mut is_correct = false;
-
-        // Ultimately, if there is a very low chance, we still don't want the
-        // correctness_factor to go any lower than 5%
-        correctness_factor = correctness_factor.max(0.05);
-
         while !is_correct {
             let rand_value = rand::thread_rng().gen::<f64>();
             // Simulate learner's answer attempt (random correctness).

@@ -17,6 +17,9 @@
 //! defined in the `types` module.
 //!
 
+use std::fs::File;
+use std::io::Write;
+
 pub mod simulate;
 pub mod simulated_content_actions;
 pub mod simulated_content_shapes;
@@ -24,6 +27,7 @@ pub mod simulated_learners;
 
 fn main() {
     println!(">> Welcome to NeuroNudge!");
+    let mut all_time_statistics_file = File::create("all_time_statistics.txt").unwrap();
 
     loop {
         // Ask which strategy you want to simulate
@@ -32,6 +36,7 @@ fn main() {
         println!(">> 2. Simulate Q Learning with Mastery Thresholds");
         println!(">> 3. Simulate Q Learning with Mastery Thresholds and Decaying Q Values");
         println!(">> 4. Simulate Q Learning with Mastery Thresholds, Decaying Q Values and ASD Trait Sensitivity");
+        println!(">> 5. Run All");
         println!(">> Q: Quit NeuroNudge");
 
         let mut input = String::new();
@@ -47,7 +52,7 @@ fn main() {
             break;
         }
 
-        if input != "1" && input != "2" && input != "3" && input != "4" {
+        if input != "1" && input != "2" && input != "3" && input != "4" && input != "5" {
             println!(">> Invalid input. Please try again.");
             continue;
         }
@@ -60,7 +65,17 @@ fn main() {
             );
 
             println!(">> Strategy 1: Running simulation now...");
-            simulate::run_simulation_strategy_1();
+            let time = std::time::Instant::now();
+            simulate::run_simulation_strategy_1(None);
+            let elapsed = time.elapsed();
+
+            write!(
+                &mut all_time_statistics_file,
+                "Strategy 1: {}\n",
+                elapsed.as_millis()
+            )
+            .unwrap();
+
             println!(">> Strategy 1: Simulation complete!");
         } else if strategy == 2 {
             println!(
@@ -68,20 +83,261 @@ fn main() {
             );
 
             println!(">> Strategy 2: Running simulation now...");
-            simulate::run_simulation_strategy_2();
+
+            let time = std::time::Instant::now();
+            simulate::run_simulation_strategy_2(None);
+            let elapsed = time.elapsed();
+
+            write!(
+                &mut all_time_statistics_file,
+                "Strategy 2: {}\n",
+                elapsed.as_millis()
+            )
+            .unwrap();
+
             println!(">> Strategy 2: Simulation complete!");
         } else if strategy == 3 {
             println!(">> You have selected Strategy 3: Simulate Q Learning with Mastery Thresholds and Decaying Q Values");
 
             println!(">> Strategy 3: Running simulation now...");
-            simulate::run_simulation_strategy_3();
+            let time = std::time::Instant::now();
+            simulate::run_simulation_strategy_3(None);
+            let elapsed = time.elapsed();
+
+            write!(
+                &mut all_time_statistics_file,
+                "Strategy 3: {}\n",
+                elapsed.as_millis()
+            )
+            .unwrap();
+
             println!(">> Strategy 3: Simulation complete!");
         } else if strategy == 4 {
             println!(">> You have selected Strategy 4: Simulate Q Learning with Mastery Thresholds, Decaying Q Values and ASD Trait Sensitivity");
 
             println!(">> Strategy 4: Running simulation now...");
-            simulate::run_simulation_strategy_4();
+            let time = std::time::Instant::now();
+            simulate::run_simulation_strategy_4(None);
+            let elapsed = time.elapsed();
+
+            write!(
+                &mut all_time_statistics_file,
+                "Strategy 4 Actions: {}\n",
+                elapsed.as_millis()
+            )
+            .unwrap();
+
             println!(">> Strategy 4: Simulation complete!");
+        } else if strategy == 5 {
+            // No printing logs needed
+            // 1000 Iterations, 5 times each
+
+            println!("Running 1k iterations...");
+            for _ in 0..5 {
+                // 1
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_1(Some(1000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 1: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 2
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_2(Some(1000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 2: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 3
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_3(Some(1000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 3: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 4
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_4(Some(1000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 4: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+            }
+
+            println!("Running 5k iterations...");
+            // 5000 Iterations, 5 times each
+            for _ in 0..5 {
+                // 1
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_1(Some(5000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 1: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 2
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_2(Some(5000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 2: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 3
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_3(Some(5000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 3: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 4
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_4(Some(5000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 4: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+            }
+
+            println!("Running 10k iterations...");
+            // 10000 Iterations, 5 times each
+            for _ in 0..5 {
+                // 1
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_1(Some(10000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 1: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 2
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_2(Some(10000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 2: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 3
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_3(Some(10000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 3: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 4
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_4(Some(10000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 4: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+            }
+
+            println!("Running 20k iterations...");
+            // 20000 Iterations, 5 times each
+            for _ in 0..5 {
+                // 1
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_1(Some(20000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 1: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 2
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_2(Some(20000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 2: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 3
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_3(Some(20000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 3: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+
+                // 4
+                let time = std::time::Instant::now();
+                simulate::run_simulation_strategy_4(Some(20000));
+                let elapsed = time.elapsed();
+
+                write!(
+                    &mut all_time_statistics_file,
+                    "Strategy 4: {}\n",
+                    elapsed.as_millis()
+                )
+                .unwrap();
+            }
         }
     }
 }
